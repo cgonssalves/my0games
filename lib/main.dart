@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'screens/login_screen.dart';
+import 'screens/splash_screen.dart'; // Mude a tela inicial para a SplashScreen
 
 void main() {
   runApp(const MyApp());
@@ -12,7 +12,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      // tema do app
+      title: 'My 0 Games',
       theme: ThemeData.dark().copyWith(
         scaffoldBackgroundColor: const Color(0xFF121212),
         inputDecorationTheme: const InputDecorationTheme(
@@ -35,7 +35,8 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const LoginScreen(), // tela inicial
+      // A primeira tela do nosso app agora é a Splash Screen!
+      home: const SplashScreen(),
     );
   }
 }

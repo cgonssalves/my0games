@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'home_screen.dart'; // Importamos a nossa nova tela Home
+import 'package:shared_preferences/shared_preferences.dart'; // Importe o pacote
+import 'home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -11,32 +12,36 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-
-  // Variável para controlar a visibilidade da senha
   bool _isPasswordVisible = false;
 
   @override
   void dispose() {
-    // Sempre limpe os controllers quando o widget for descartado
     _nameController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
-  void _login() {
-    // Verificação básica, apenas para o exemplo
+  // A função de login agora é um Future, pois salvar dados é uma operação assíncrona
+  Future<void> _login() async {
     if (_nameController.text.isNotEmpty && _passwordController.text.length >= 8) {
-      // Navega para a HomeScreen e remove a LoginScreen da pilha,
-      // assim o usuário não pode "voltar" para a tela de login.
+      // 1. Acessa a "caixinha" de preferências
+      final prefs = await SharedPreferences.getInstance();
+      
+      // 2. Salva os dados do usuário
+      await prefs.setBool('isLoggedIn', true);
+      await prefs.setString('gamerName', _nameController.text);
+
+      // Garante que o widget ainda está montado antes de navegar
+      if (!mounted) return;
+
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (context) => HomeScreen(
-            gamerName: _nameController.text, // Passamos o nome do jogador para a próxima tela
+            gamerName: _nameController.text,
           ),
         ),
       );
     } else {
-      // Mostra uma mensagem de erro se os campos não forem válidos
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Por favor, preencha o nome e uma senha com no mínimo 8 caracteres.'),
