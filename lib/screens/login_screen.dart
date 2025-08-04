@@ -3,7 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart'; // Importe o pacote
 import 'home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({Key? key}) : super(key: key);
+  const LoginScreen({super.key});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -36,11 +36,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (context) => HomeScreen(
-            gamerName: _nameController.text,
-          ),
-        ),
-      );
+          builder: (context) => const HomeScreen()),
+);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

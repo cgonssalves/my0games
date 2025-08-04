@@ -1,91 +1,95 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // Importe o pacote
-import 'login_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'login_screen.dart'; // Garanta que a importação está correta
 
-class HomeScreen extends StatelessWidget {
-  final String gamerName;
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
 
-  const HomeScreen({Key? key, required this.gamerName}) : super(key: key);
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
 
-  // A função de logout agora também é assíncrona
-  Future<void> _logout(BuildContext context) async {
-    // 1. Acessa a "caixinha" de preferências
+class _HomeScreenState extends State<HomeScreen> {
+  String _gamerName = 'Carregando...'; // Valor inicial enquanto busca os dados
+
+  @override
+  void initState() {
+    super.initState();
+    _loadGamerName(); // Carrega o nome do usuário ao iniciar a tela
+  }
+
+  // Função para buscar o nome do SharedPreferences
+  Future<void> _loadGamerName() async {
     final prefs = await SharedPreferences.getInstance();
-    
-    // 2. Limpa os dados salvos
-    await prefs.clear(); // O .clear() apaga tudo que salvamos
+    // Busca o nome salvo; se não encontrar, usa 'Jogador' como padrão
+    setState(() {
+      _gamerName = prefs.getString('gamerName') ?? 'Jogador';
+    });
+  }
 
-    // Garante que o widget ainda está montado antes de navegar
-    if (!context.mounted) return;
+  // Função de Logout
+  Future<void> _logout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear(); // Limpa todos os dados salvos
 
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (context) => const LoginScreen()),
-    );
+    // Navega de volta para a tela de login
+    if (mounted) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (context) => const LoginScreen()),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFF121212),
       appBar: AppBar(
         title: const Text('Meu Perfil'),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
+        backgroundColor: const Color(0xFF1E1E1E),
         actions: [
-          // Botão de Logout (Sair)
           IconButton(
             icon: const Icon(Icons.logout),
+            onPressed: _logout,
             tooltip: 'Sair',
-            onPressed: () => _logout(context),
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
+      body: Center(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(
-              'Bem-vindo(a) de volta,',
-              style: TextStyle(color: Colors.grey[400], fontSize: 22),
+            // Círculo para a foto de perfil
+            const CircleAvatar(
+              radius: 60,
+              backgroundColor: Colors.white24,
+              // Usamos uma imagem da rede como placeholder
+              backgroundImage: NetworkImage(
+                  'https://i.pravatar.cc/150?u=a042581f4e29026704d'),
             ),
+            const SizedBox(height: 20),
+
+            // Nome do Gamer
             Text(
-              gamerName,
+              _gamerName,
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 28,
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 40),
+            const SizedBox(height: 8),
+
+            // Um subtítulo de exemplo
             const Text(
-              'Minhas Métricas',
-              style: TextStyle(color: Colors.white, fontSize: 20),
-            ),
-            const Divider(color: Colors.green),
-            
-            // Espaço para a lista de métricas no futuro
-            Expanded(
-              child: Center(
-                child: Text(
-                  'Você ainda não adicionou nenhuma métrica.\nClique no botão + para começar!',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey[600], fontSize: 16),
-                ),
+              'Mestre das Métricas',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 16,
               ),
             ),
           ],
         ),
-      ),
-      // Botão flutuante para adicionar novas métricas
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          // Aqui vamos adicionar a lógica para abrir uma tela de "Adicionar Métrica"
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Funcionalidade a ser implementada!')),
-          );
-        },
-        backgroundColor: Colors.green,
-        child: const Icon(Icons.add),
       ),
     );
   }

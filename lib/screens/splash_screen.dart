@@ -4,7 +4,7 @@ import 'home_screen.dart';
 import 'login_screen.dart';
 
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({Key? key}) : super(key: key);
+  const SplashScreen({super.key});
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
@@ -30,7 +30,7 @@ class _SplashScreenState extends State<SplashScreen> {
     if (isLoggedIn) {
       final String gamerName = prefs.getString('gamerName') ?? 'Jogador';
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => HomeScreen(gamerName: gamerName)),
+  MaterialPageRoute(builder: (context) => const HomeScreen()),
       );
     } else {
       Navigator.of(context).pushReplacement(
