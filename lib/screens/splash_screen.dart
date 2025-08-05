@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'home_screen.dart';
-import 'login_screen.dart';
+import 'dart:async'; // Precisamos para o Timer
+import 'home_screen.dart'; // Apenas importa a HomeScreen
 
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key});
+  const SplashScreen({Key? key}) : super(key: key);
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
@@ -14,48 +13,25 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    _checkLoginStatus();
-  }
-
-  Future<void> _checkLoginStatus() async {
-    // Aguarda um pouquinho para a splash screen ser visível
-    await Future.delayed(const Duration(seconds: 2));
-
-    final prefs = await SharedPreferences.getInstance();
-    final bool isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
-
-    // Garante que o widget ainda está na árvore de widgets antes de navegar
-    if (!mounted) return;
-
-    if (isLoggedIn) {
-      final String gamerName = prefs.getString('gamerName') ?? 'Jogador';
-      Navigator.of(context).pushReplacement(
-  MaterialPageRoute(builder: (context) => const HomeScreen()),
-      );
-    } else {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => const LoginScreen()),
-      );
-    }
+    // Inicia um timer de 2 segundos. Depois, navega para a HomeScreen.
+    Timer(const Duration(seconds: 1), () {
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          // Apenas chama a HomeScreen, SEM NENHUM PARÂMETRO
+          MaterialPageRoute(builder: (context) => const HomeScreen()),
+        );
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    // Tela de carregamento simples
+    // Você pode colocar sua logo ou qualquer widget para a splash aqui
     return const Scaffold(
+      backgroundColor: Color(0xFF121212), // Mesma cor de fundo do seu app
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.green),
-            ),
-            SizedBox(height: 20),
-            Text(
-              'Carregando seu perfil...',
-              style: TextStyle(color: Colors.white, fontSize: 18),
-            ),
-          ],
+        child: CircularProgressIndicator(
+          color: Colors.white,
         ),
       ),
     );

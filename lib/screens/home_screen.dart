@@ -11,26 +11,40 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   String _gamerName = 'Carregando...';
-
-  // --- NOSSAS NOVAS VARIÁVEIS DE ESTADO ---
-  // A plataforma selecionada (nullable, pois pode começar vazia)
   String? _selectedPlatform;
-  // A lista de opções de plataformas
   final List<String> _platforms = ['PC', 'Xbox', 'Playstation', 'Nintendo'];
-  // ------------------------------------------
 
   @override
   void initState() {
     super.initState();
     _loadGamerName();
+    _loadPlatform(); // MUDANÇA 1: Carrega a plataforma salva ao iniciar
   }
 
   Future<void> _loadGamerName() async {
     final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _gamerName = prefs.getString('gamerName') ?? 'Jogador';
-    });
+    if (mounted) {
+      setState(() {
+        _gamerName = prefs.getString('gamerName') ?? 'Jogador';
+      });
+    }
   }
+
+  // --- MUDANÇA 2: FUNÇÕES DE SALVAR E CARREGAR ADICIONADAS ---
+  Future<void> _savePlatform(String platform) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('selectedPlatform', platform);
+  }
+
+  Future<void> _loadPlatform() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _selectedPlatform = prefs.getString('selectedPlatform');
+      });
+    }
+  }
+  // --- FIM DA MUDANÇA 2 ---
 
   Future<void> _logout() async {
     final prefs = await SharedPreferences.getInstance();
@@ -57,30 +71,21 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      // --- MUDANÇA NO LAYOUT PRINCIPAL ---
-      // Usamos um Column com Padding para ter controle total
       body: Container(
-        // Garante que a coluna ocupe toda a largura
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 20.0),
         child: Column(
-          // Alinha os itens no centro HORIZONTALMENTE
           crossAxisAlignment: CrossAxisAlignment.center,
-          // Alinha os itens no TOPO VERTICALMENTE
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
-            const SizedBox(height: 40), // Espaço do topo
-
-            // Círculo para a foto de perfil
+            const SizedBox(height: 40),
             const CircleAvatar(
               radius: 60,
               backgroundColor: Colors.white24,
-              backgroundImage: NetworkImage(
-                  'https://i.pravatar.cc/150?u=a042581f4e29026704d'),
+              backgroundImage:
+                  NetworkImage('https://i.pravatar.cc/150?u=a042581f4e29026704d'),
             ),
             const SizedBox(height: 20),
-
-            // Nome do Gamer
             Text(
               _gamerName,
               style: const TextStyle(
@@ -89,20 +94,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 40), // Espaço maior antes do botão
-
-            // --- NOSSO NOVO SELETOR DE PLATAFORMA ---
+            const SizedBox(height: 40),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E1E1E), // Cor do retângulo
-                borderRadius: BorderRadius.circular(8.0),
-                border: Border.all(color: Colors.white24) // Borda sutil
-              ),
+                  color: const Color(0xFF1E1E1E),
+                  borderRadius: BorderRadius.circular(8.0),
+                  border: Border.all(color: Colors.white24)),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<String>(
                   value: _selectedPlatform,
-                  // O texto que aparece quando nada foi selecionado
                   hint: const Text(
                     'Selecionar plataforma',
                     style: TextStyle(color: Colors.white70),
@@ -111,19 +112,26 @@ class _HomeScreenState extends State<HomeScreen> {
                   icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
                   dropdownColor: const Color(0xFF1E1E1E),
                   style: const TextStyle(color: Colors.white, fontSize: 16),
-                  // Mapeia nossa lista de strings para uma lista de itens de menu
                   items: _platforms.map((String value) {
                     return DropdownMenuItem<String>(
                       value: value,
                       child: Text(value),
                     );
                   }).toList(),
-                  // O que acontece quando o usuário seleciona um item
+                  // --- MUDANÇA 3: LÓGICA DE SALVAMENTO ADICIONADA AQUI ---
                   onChanged: (String? newValue) {
+                    // Se o usuário não selecionar nada (raro), não fazemos nada.
+                    if (newValue == null) return;
+
+                    // Atualiza a tela para mostrar a nova seleção
                     setState(() {
                       _selectedPlatform = newValue;
                     });
+
+                    // Salva a nova escolha na memória do celular
+                    _savePlatform(newValue);
                   },
+                  // --- FIM DA MUDANÇA 3 ---
                 ),
               ),
             ),
