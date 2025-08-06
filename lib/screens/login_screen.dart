@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // Importe o pacote
+import 'package:shared_preferences/shared_preferences.dart'; 
 import 'home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -21,13 +21,12 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  // A função de login agora é um Future, pois salvar dados é uma operação assíncrona
   Future<void> _login() async {
     if (_nameController.text.isNotEmpty && _passwordController.text.length >= 8) {
-      // 1. Acessa a "caixinha" de preferências
+      // Acessa a caixinha de preferências
       final prefs = await SharedPreferences.getInstance();
       
-      // 2. Salva os dados do usuário
+      // Salva os dados do usuário
       await prefs.setBool('isLoggedIn', true);
       await prefs.setString('gamerName', _nameController.text);
 
@@ -54,15 +53,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
     return Scaffold(
       body: Center(
-        // Usamos SingleChildScrollView para evitar que o teclado
-        // quebre a interface em telas menores.
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 30),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Título do App
               const Text(
                 'My 0 Games',
                 textAlign: TextAlign.center,
@@ -100,7 +96,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 decoration: InputDecoration(
                   hintText: "Digite sua 'gamer senha'",
                   prefixIcon: const Icon(Icons.lock_outline, color: Colors.white54),
-                  // Adiciona um ícone para mostrar/esconder a senha
+                  // ícone para mostrar/esconder a senha
                   suffixIcon: IconButton(
                     icon: Icon(
                       _isPasswordVisible ? Icons.visibility_off : Icons.visibility,
@@ -121,7 +117,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ElevatedButton(
                 onPressed: isFormValid ? _login : null,
                 style: ElevatedButton.styleFrom(
-                  // Desabilita o botão visualmente quando o formulário é inválido
+                  // Desabilitar o botão visualmente quando o formulário é inválido
                   backgroundColor: isFormValid ? Colors.green : Colors.grey.shade800,
                 ),
                 child: const Text('Entrar', style: TextStyle(fontSize: 18)),

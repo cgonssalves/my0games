@@ -13,11 +13,11 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    // Inicia um timer de 2 segundos. Depois, navega para a HomeScreen.
+    // Inicia um timer de 1 segundos depois navega para a HomeScreen.
     Timer(const Duration(seconds: 1), () {
       if (mounted) {
         Navigator.of(context).pushReplacement(
-          // Apenas chama a HomeScreen, SEM NENHUM PARÂMETRO
+          // Chama a HomeScreen
           MaterialPageRoute(builder: (context) => const HomeScreen()),
         );
       }
@@ -26,9 +26,8 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Você pode colocar sua logo ou qualquer widget para a splash aqui
     return const Scaffold(
-      backgroundColor: Color(0xFF121212), // Mesma cor de fundo do seu app
+      backgroundColor: Color(0xFF121212),
       body: Center(
         child: CircularProgressIndicator(
           color: Colors.white,

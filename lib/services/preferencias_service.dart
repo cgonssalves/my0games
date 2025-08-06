@@ -1,5 +1,3 @@
-// lib/services/preferencias_service.dart
-
 import 'package:shared_preferences/shared_preferences.dart';
 
 const String _keyPlataforma = 'plataforma_usuario';
@@ -10,7 +8,7 @@ Future<void> salvarPlataforma(String plataforma) async {
   await prefs.setString(_keyPlataforma, plataforma);
 }
 
-/// Carrega a plataforma salva anteriormente.
+/// Carrega a plataforma pelo usuário.
 Future<String?> carregarPlataforma() async {
   final prefs = await SharedPreferences.getInstance();
   return prefs.getString(_keyPlataforma);

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'screens/splash_screen.dart'; // Mude a tela inicial para a SplashScreen
+import 'screens/splash_screen.dart'; 
 
 void main() {
   runApp(const MyApp());
@@ -35,7 +35,7 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      // A primeira tela do nosso app agora é a Splash Screen!
+      // A primeira tela do app agora é a Splash Screen!
       home: const SplashScreen(),
     );
   }

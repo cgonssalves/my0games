@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'login_screen.dart'; // Garanta que a importação está correta
+import 'package:my0games/screens/login_screen.dart'; 
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -18,7 +18,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadGamerName();
-    _loadPlatform(); // MUDANÇA 1: Carrega a plataforma salva ao iniciar
+    _loadPlatform();
   }
 
   Future<void> _loadGamerName() async {
@@ -30,7 +30,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // --- MUDANÇA 2: FUNÇÕES DE SALVAR E CARREGAR ADICIONADAS ---
   Future<void> _savePlatform(String platform) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('selectedPlatform', platform);
@@ -44,7 +43,6 @@ class _HomeScreenState extends State<HomeScreen> {
       });
     }
   }
-  // --- FIM DA MUDANÇA 2 ---
 
   Future<void> _logout() async {
     final prefs = await SharedPreferences.getInstance();
@@ -62,7 +60,8 @@ class _HomeScreenState extends State<HomeScreen> {
       backgroundColor: const Color(0xFF121212),
       appBar: AppBar(
         title: const Text('Meu Perfil'),
-        backgroundColor: const Color(0xFF1E1E1E),
+        backgroundColor: const Color(0xFF1E1E1E), 
+        elevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
@@ -71,19 +70,16 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 20.0),
+      body: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20.0), // Padding geral
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
-          mainAxisAlignment: MainAxisAlignment.start,
           children: [
-            const SizedBox(height: 40),
+            const SizedBox(height: 20), 
             const CircleAvatar(
               radius: 60,
               backgroundColor: Colors.white24,
-              backgroundImage:
-                  NetworkImage('https://i.pravatar.cc/150?u=a042581f4e29026704d'),
+              backgroundImage: NetworkImage('https://i.pravatar.cc/150?u=a042581f4e29026704d'),
             ),
             const SizedBox(height: 20),
             Text(
@@ -94,7 +90,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 40),
+            const SizedBox(height: 30), // Espaço antes do dropdown
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
               decoration: BoxDecoration(
@@ -104,10 +100,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<String>(
                   value: _selectedPlatform,
-                  hint: const Text(
-                    'Selecionar plataforma',
-                    style: TextStyle(color: Colors.white70),
-                  ),
+                  hint: const Text( 'Selecionar plataforma', style: TextStyle(color: Colors.white70),),
                   isExpanded: true,
                   icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
                   dropdownColor: const Color(0xFF1E1E1E),
@@ -118,21 +111,63 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Text(value),
                     );
                   }).toList(),
-                  // --- MUDANÇA 3: LÓGICA DE SALVAMENTO ADICIONADA AQUI ---
                   onChanged: (String? newValue) {
-                    // Se o usuário não selecionar nada (raro), não fazemos nada.
                     if (newValue == null) return;
-
-                    // Atualiza a tela para mostrar a nova seleção
-                    setState(() {
-                      _selectedPlatform = newValue;
-                    });
-
-                    // Salva a nova escolha na memória do celular
+                    setState(() { _selectedPlatform = newValue; });
                     _savePlatform(newValue);
                   },
-                  // --- FIM DA MUDANÇA 3 ---
                 ),
+              ),
+            ),
+
+            const SizedBox(height: 30), // espaço antes da nova seção
+
+
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Biblioteca',
+                  style: TextStyle( color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold,),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    print('Botão Adicionar Game clicado!');
+                  },
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text('Adicionar Game'),
+                  style: ElevatedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    backgroundColor: Colors.grey[800],
+                  ),
+                ),
+              ],
+            ),
+            
+            const SizedBox(height: 20),
+
+
+            Expanded(
+              child: GridView.builder(
+                padding: const EdgeInsets.only(top: 4.0, bottom: 20.0), // Adiciona um respiro
+                itemCount: 4,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                  childAspectRatio: 0.75,
+                ),
+                itemBuilder: (context, index) {
+                  return Container(
+                    decoration: BoxDecoration(
+                      color: Colors.grey[850],
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Center(
+                      child: Text('Capa', style: TextStyle(color: Colors.white54)),
+                    ),
+                  );
+                },
               ),
             ),
           ],
