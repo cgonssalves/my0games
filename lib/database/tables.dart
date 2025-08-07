@@ -4,6 +4,6 @@ class Games extends Table {
   IntColumn get id => integer().autoIncrement()();
   
   TextColumn get name => text()();
-  TextColumn get coverUrl => text()(); // O mais importante para resolver seu bug!
+  TextColumn get coverUrl => text()(); 
   TextColumn get platform => text()();
 }
