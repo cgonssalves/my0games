@@ -1,89 +1,148 @@
 import 'package:flutter/material.dart';
-import 'package:my0games/services/game_service.dart'; 
+import '../database/database.dart';
+import '../services/game_service.dart' as game_service;
 
 class GameSearchScreen extends StatefulWidget {
-  const GameSearchScreen({Key? key}) : super(key: key);
+  final GamesDao gamesDao;
+
+  const GameSearchScreen({
+    Key? key,
+    required this.gamesDao,
+  }) : super(key: key);
 
   @override
-  _GameSearchScreenState createState() => _GameSearchScreenState();
+  State<GameSearchScreen> createState() => _GameSearchScreenState();
 }
 
 class _GameSearchScreenState extends State<GameSearchScreen> {
-  final GameService _gameService = GameService();
-  List<Game> _searchResults = [];
+  final _searchController = TextEditingController();
+  final _gameService = game_service.GameService();
+  List<game_service.Game> _searchResults = [];
   bool _isLoading = false;
+  String _message = "Digite o nome de um jogo para buscar.";
 
-  void _onSearchChanged(String query) async {
-    if (query.isEmpty) {
-      setState(() {
-        _searchResults = [];
-      });
-      return;
-    }
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _performSearch() async {
+    FocusScope.of(context).unfocus();
+    final query = _searchController.text;
+    if (query.isEmpty) return;
 
     setState(() {
       _isLoading = true;
+      _message = '';
+      _searchResults = [];
     });
 
-    final results = await _gameService.searchGames(query);
+    try {
+      final results = await _gameService.searchGames(query);
+      setState(() {
+        _searchResults = results;
+        if (results.isEmpty) {
+          _message = "Nenhum jogo encontrado com o nome '$query'.";
+        }
+      });
+    } catch (e) {
+      setState(() {
+        _message = "Ocorreu um erro ao buscar. Tente novamente.";
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
 
-    setState(() {
-      _searchResults = results;
-      _isLoading = false;
-    });
+  Future<void> _addGameToLibrary(game_service.Game gameFromService) async {
+    final gameToInsert = Game(
+      id: 0, // O ID é auto-gerado pelo banco
+      name: gameFromService.name,
+      // AJUSTE 1: Usando o nome correto do campo: 'imageUrl'
+      coverUrl: gameFromService.imageUrl,
+      // AJUSTE 2: Como não temos plataforma, definimos um valor padrão.
+      platform: 'Não definida',
+    );
+
+    await widget.gamesDao.insertGame(gameToInsert);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.green,
+          content: Text('${gameToInsert.name} foi adicionado à sua biblioteca!'),
+        ),
+      );
+      Navigator.of(context).pop();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
       appBar: AppBar(
-        title: const Text('Adicionar Jogo'),
-        backgroundColor: const Color(0xFF1E1E1E),
+        title: Text("Adicionar Novo Jogo"),
       ),
-      body: Column(
-        children: [
-          // --- BARRA DE BUSCA ---
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: TextField(
-              onChanged: _onSearchChanged,
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                hintText: 'Digite o nome do jogo...',
-                hintStyle: const TextStyle(color: Colors.white54),
-                prefixIcon: const Icon(Icons.search, color: Colors.white70),
-                filled: true,
-                fillColor: const Color(0xFF1E1E1E),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
-          ),
-          // --- LISTA DE RESULTADOS ---
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : ListView.builder(
-                    itemCount: _searchResults.length,
-                    itemBuilder: (context, index) {
-                      final game = _searchResults[index];
-                      return ListTile(
-                        leading: game.imageUrl.isNotEmpty
-                            ? Image.network(game.imageUrl, width: 60, fit: BoxFit.cover)
-                            : Container(width: 60, color: Colors.grey[800]),
-                        title: Text(game.name, style: const TextStyle(color: Colors.white)),
-                        onTap: () {
-                          Navigator.of(context).pop(game);
-                        },
-                      );
-                    },
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      labelText: 'Nome do jogo',
+                      border: OutlineInputBorder(),
+                    ),
+                    onSubmitted: (_) => _performSearch(),
                   ),
-          ),
-        ],
+                ),
+                SizedBox(width: 8),
+                IconButton(
+                  icon: Icon(Icons.search),
+                  onPressed: _performSearch,
+                ),
+              ],
+            ),
+            SizedBox(height: 24),
+            Expanded(
+              child: _buildResultsArea(),
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  Widget _buildResultsArea() {
+    if (_isLoading) {
+      return Center(child: CircularProgressIndicator());
+    }
+    if (_searchResults.isNotEmpty) {
+      return ListView.builder(
+        itemCount: _searchResults.length,
+        itemBuilder: (context, index) {
+          final game = _searchResults[index];
+          return Card(
+            child: ListTile(
+              onTap: () => _addGameToLibrary(game),
+              // AJUSTE 3: Usando o nome correto 'imageUrl' para a imagem.
+              leading: Image.network(game.imageUrl, width: 50, fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Icon(Icons.broken_image), // fallback
+              ),
+              title: Text(game.name),
+              // AJUSTE 4: Como não temos plataforma, podemos colocar uma dica.
+              subtitle: Text('Toque para adicionar'),
+            ),
+          );
+        },
+      );
+    }
+    return Center(child: Text(_message));
   }
 }
