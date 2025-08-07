@@ -4,13 +4,10 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'dart:io';
 
-// Importa a tabela que acabamos de criar
 import 'tables.dart';
 
-// Esta parte é gerada pelo build_runner. Vai dar erro agora, mas ignore.
 part 'database.g.dart';
 
-// O DAO (Data Access Object) define as operações do banco
 @DriftAccessor(tables: [Games])
 class GamesDao extends DatabaseAccessor<AppDatabase> with _$GamesDaoMixin {
   GamesDao(AppDatabase db) : super(db);
