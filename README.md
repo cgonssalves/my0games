@@ -1,6 +1,6 @@
 # my0games
 
-A new Flutter project.
+A gamer Flutter project.
 
 ## Getting Started
 
