@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import '../database/database.dart';
-import '../services/game_service.dart' as game_service;
 
 class GameSearchScreen extends StatefulWidget {
   final GamesDao gamesDao;
 
-  const GameSearchScreen({
-    Key? key,
-    required this.gamesDao,
-  }) : super(key: key);
+  const GameSearchScreen({Key? key, required this.gamesDao}) : super(key: key);
 
   @override
   State<GameSearchScreen> createState() => _GameSearchScreenState();
@@ -16,10 +14,59 @@ class GameSearchScreen extends StatefulWidget {
 
 class _GameSearchScreenState extends State<GameSearchScreen> {
   final _searchController = TextEditingController();
-  final _gameService = game_service.GameService();
-  List<game_service.Game> _searchResults = [];
+  List<dynamic> _searchResults = [];
   bool _isLoading = false;
-  String _message = "Digite o nome de um jogo para buscar.";
+
+  Future<void> _searchGames() async {
+    if (_searchController.text.trim().isEmpty) return;
+    FocusScope.of(context).unfocus(); 
+
+    setState(() {
+      _isLoading = true;
+      _searchResults = [];
+    });
+
+    const apiKey = 'ab7212e032af4985883bddabb6d95c72';
+    final query = Uri.encodeComponent(_searchController.text.trim());
+    final url = Uri.parse('https://api.rawg.io/api/games?key=$apiKey&search=$query');
+
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        setState(() => _searchResults = data['results'] ?? []);
+      } else {
+        _showError('Erro ao buscar jogos: ${response.statusCode}');
+      }
+    } catch (e) {
+      _showError('Erro de conexão. Verifique sua internet.');
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  void _showError(String message) {
+    if(mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    }
+  }
+
+  Future<void> _saveGame(dynamic gameData) async {
+    final newGame = GamesCompanion.insert(
+      name: gameData['name'] ?? 'Nome desconhecido',
+      coverUrl: gameData['background_image'] ?? 'https://via.placeholder.com/300x400.png?text=No+Image',
+      platform: 'PC', 
+    );
+
+    await widget.gamesDao.insertGame(newGame);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${newGame.name.value} adicionado!')),
+      );
+      Navigator.pop(context);
+    }
+  }
 
   @override
   void dispose() {
@@ -27,122 +74,53 @@ class _GameSearchScreenState extends State<GameSearchScreen> {
     super.dispose();
   }
 
-  Future<void> _performSearch() async {
-    FocusScope.of(context).unfocus();
-    final query = _searchController.text;
-    if (query.isEmpty) return;
-
-    setState(() {
-      _isLoading = true;
-      _message = '';
-      _searchResults = [];
-    });
-
-    try {
-      final results = await _gameService.searchGames(query);
-      setState(() {
-        _searchResults = results;
-        if (results.isEmpty) {
-          _message = "Nenhum jogo encontrado com o nome '$query'.";
-        }
-      });
-    } catch (e) {
-      setState(() {
-        _message = "Ocorreu um erro ao buscar. Tente novamente.";
-      });
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
-  }
-
-  Future<void> _addGameToLibrary(game_service.Game gameFromService) async {
-    final gameToInsert = Game(
-      id: 0, // O ID é auto-gerado pelo banco
-      name: gameFromService.name,
-      // AJUSTE 1: Usando o nome correto do campo: 'imageUrl'
-      coverUrl: gameFromService.imageUrl,
-      // AJUSTE 2: Como não temos plataforma, definimos um valor padrão.
-      platform: 'Não definida',
-    );
-
-    await widget.gamesDao.insertGame(gameToInsert);
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: Colors.green,
-          content: Text('${gameToInsert.name} foi adicionado à sua biblioteca!'),
-        ),
-      );
-      Navigator.of(context).pop();
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Adicionar Novo Jogo"),
+        title: const Text('Buscar Jogo'),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      labelText: 'Nome do jogo',
-                      border: OutlineInputBorder(),
-                    ),
-                    onSubmitted: (_) => _performSearch(),
-                  ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                labelText: 'Digite o nome do jogo',
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.search),
+                  onPressed: _searchGames,
                 ),
-                SizedBox(width: 8),
-                IconButton(
-                  icon: Icon(Icons.search),
-                  onPressed: _performSearch,
-                ),
-              ],
+                border: const OutlineInputBorder(),
+              ),
+              onSubmitted: (_) => _searchGames(),
             ),
-            SizedBox(height: 24),
+          ),
+          if (_isLoading)
+            const Expanded(child: Center(child: CircularProgressIndicator()))
+          else if (_searchResults.isEmpty)
+             Expanded(child: Center(child: Text(_searchController.text.isEmpty ? 'Digite algo para buscar.' : 'Nenhum resultado encontrado.')))
+          else
             Expanded(
-              child: _buildResultsArea(),
+              child: ListView.builder(
+                itemCount: _searchResults.length,
+                itemBuilder: (context, index) {
+                  final game = _searchResults[index];
+                  final imageUrl = game['background_image'];
+                  return ListTile(
+                    leading: imageUrl != null
+                        ? Image.network(imageUrl, width: 50, fit: BoxFit.cover, errorBuilder: (c,e,s) => const Icon(Icons.image_not_supported))
+                        : const Icon(Icons.image_not_supported),
+                    title: Text(game['name'] ?? 'Sem nome'),
+                    subtitle: Text('Lançamento: ${game['released'] ?? 'N/A'}'),
+                    onTap: () => _saveGame(game),
+                  );
+                },
+              ),
             ),
-          ],
-        ),
+        ],
       ),
     );
-  }
-
-  Widget _buildResultsArea() {
-    if (_isLoading) {
-      return Center(child: CircularProgressIndicator());
-    }
-    if (_searchResults.isNotEmpty) {
-      return ListView.builder(
-        itemCount: _searchResults.length,
-        itemBuilder: (context, index) {
-          final game = _searchResults[index];
-          return Card(
-            child: ListTile(
-              onTap: () => _addGameToLibrary(game),
-              // AJUSTE 3: Usando o nome correto 'imageUrl' para a imagem.
-              leading: Image.network(game.imageUrl, width: 50, fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Icon(Icons.broken_image), // fallback
-              ),
-              title: Text(game.name),
-              // AJUSTE 4: Como não temos plataforma, podemos colocar uma dica.
-              subtitle: Text('Toque para adicionar'),
-            ),
-          );
-        },
-      );
-    }
-    return Center(child: Text(_message));
   }
 }

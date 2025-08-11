@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'game_search_screen.dart';
 import '../database/database.dart';
+import 'login_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -11,15 +13,25 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   late AppDatabase _database;
+  late Stream<List<Game>> _gamesStream;
+  String _gamerName = "Carregando...";
 
-  // Variáveis de estado para a UI que você já tinha
   final List<String> _platforms = ['PC', 'Xbox', 'Playstation', 'Nintendo'];
-  String? _selectedPlatform = 'PC'; // Definindo um valor inicial
+  String _selectedPlatform = 'PC';
 
   @override
   void initState() {
     super.initState();
     _database = AppDatabase();
+    _loadUserData();
+    _updateGamesStream();
+  }
+
+  Future<void> _loadUserData() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _gamerName = prefs.getString('gamerName') ?? 'Gamer';
+    });
   }
 
   @override
@@ -27,8 +39,14 @@ class _HomeScreenState extends State<HomeScreen> {
     _database.close();
     super.dispose();
   }
+  
+  void _updateGamesStream() {
+    setState(() {
+      _gamesStream = _database.gamesDao.watchGamesByPlatform(_selectedPlatform);
+    });
+  }
 
-  void _navigateToAddGameScreen() {
+  void _navigateToGameSearch() {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => GameSearchScreen(gamesDao: _database.gamesDao),
@@ -36,21 +54,33 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Future<void> _logout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+    await _database.gamesDao.clearAllDataForLogout();
+    
+    if (mounted) {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const LoginScreen()),
+        (Route<dynamic> route) => false,
+      );
+    }
+  }
+
   void _showDeleteConfirmationDialog(Game game) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text("Confirmar Exclusão"),
-          content: Text(
-              "Você tem certeza que deseja remover '${game.name}' da sua biblioteca?"),
-          actions: <Widget>[
+          title: const Text("Confirmar Exclusão"),
+          content: Text("Deseja remover '${game.name}'?"),
+          actions: [
             TextButton(
-              child: Text("Cancelar"),
+              child: const Text("Cancelar"),
               onPressed: () => Navigator.of(context).pop(),
             ),
             TextButton(
-              child: Text("Excluir", style: TextStyle(color: Colors.red)),
+              child: const Text("Excluir", style: TextStyle(color: Colors.red)),
               onPressed: () {
                 _database.gamesDao.deleteGame(game);
                 Navigator.of(context).pop();
@@ -65,83 +95,65 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        // Mantém o título do seu design original
-        title: Text("Meu Perfil"),
-        actions: [
-          // Botão de logout que você tinha
-          IconButton(
-            icon: Icon(Icons.logout),
-            tooltip: 'Sair',
-            onPressed: () {
-              // TODO: Adicionar sua lógica de logout aqui
-            },
-          ),
-        ],
-      ),
-      // Usamos uma Column para empilhar os widgets verticalmente
       body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        padding: const EdgeInsets.all(16.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.logout),
+                  tooltip: 'Sair',
+                  onPressed: _logout,
+                ),
+              ],
+            ),
 
-            // --- SEÇÃO DO PERFIL ---
             const CircleAvatar(
               radius: 50,
-              // Coloque sua imagem de perfil aqui
-              backgroundImage: NetworkImage('https://i.imgur.com/example.jpg'), // URL de exemplo
+              backgroundImage: NetworkImage('https://i.imgur.com/8soQJkH.png'), 
             ),
             const SizedBox(height: 12),
-            const Text(
-              "nome de usuario", // Coloque o nome do usuário aqui
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            Text(
+              _gamerName, 
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 20),
+
 
             // --- SELETOR DE PLATAFORMA ---
             DropdownButtonFormField<String>(
               value: _selectedPlatform,
-              decoration: InputDecoration(
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              items: _platforms.map((String platform) {
-                return DropdownMenuItem<String>(
-                  value: platform,
-                  child: Text(platform),
-                );
-              }).toList(),
-              onChanged: (String? newValue) {
-                setState(() {
-                  _selectedPlatform = newValue;
-                });
+              items: _platforms.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() {
+                    _selectedPlatform = value;
+                    _updateGamesStream();
+                  });
+                }
               },
+              decoration: const InputDecoration(border: OutlineInputBorder()),
             ),
             const SizedBox(height: 24),
-
-            // --- TÍTULO DA BIBLIOTECA E BOTÃO DE ADICIONAR ---
+            
+            // --- TÍTULO DA BIBLIOTECA ---
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  "Biblioteca",
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
+                const Text("Biblioteca", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
                 ElevatedButton.icon(
-                  icon: Icon(Icons.add, size: 18),
-                  label: Text("Adicionar Game"),
-                  onPressed: _navigateToAddGameScreen,
+                  icon: const Icon(Icons.add),
+                  label: const Text("Adicionar"),
+                  onPressed: _navigateToGameSearch,
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 10),
 
-            // --- GRADE DE JOGOS (COM EXPANDED) ---
-            // O Expanded é CRUCIAL aqui. Ele diz para a grade de jogos
-            // ocupar todo o espaço vertical que sobrou na tela.
+            // --- GRADE DE JOGOS ---
             Expanded(
               child: _buildGameLibraryGrid(),
             ),
@@ -151,26 +163,22 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Separei a lógica da grade em um widget para organizar melhor
   Widget _buildGameLibraryGrid() {
     return StreamBuilder<List<Game>>(
-      stream: _database.gamesDao.watchAllGames(),
+      stream: _gamesStream,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return Center(child: CircularProgressIndicator());
+          return const Center(child: CircularProgressIndicator());
         }
-
         final games = snapshot.data ?? [];
-
         if (games.isEmpty) {
-          return Center(child: Text("Sua biblioteca está vazia."));
+          return Center(child: Text("Nenhum jogo para '$_selectedPlatform'."));
         }
-
         return GridView.builder(
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
-            crossAxisSpacing: 12.0,
-            mainAxisSpacing: 12.0,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
             childAspectRatio: 0.75,
           ),
           itemCount: games.length,
@@ -180,7 +188,6 @@ class _HomeScreenState extends State<HomeScreen> {
               onLongPress: () => _showDeleteConfirmationDialog(game),
               child: Card(
                 clipBehavior: Clip.antiAlias,
-                elevation: 4.0,
                 child: GridTile(
                   footer: GridTileBar(
                     backgroundColor: Colors.black54,
@@ -189,9 +196,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Image.network(
                     game.coverUrl,
                     fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Center(child: Icon(Icons.broken_image, color: Colors.grey));
-                    },
+                    errorBuilder: (context, error, stack) => const Icon(Icons.broken_image),
                   ),
                 ),
               ),

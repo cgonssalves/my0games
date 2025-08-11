@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'dart:async'; // Precisamos para o Timer
-import 'home_screen.dart'; // Apenas importa a HomeScreen
+import 'dart:async';
+import 'home_screen.dart'; 
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({Key? key}) : super(key: key);

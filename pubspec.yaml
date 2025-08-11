@@ -1,32 +1,30 @@
 name: my0games
 description: "A gamer Flutter project."
-publish_to: 'none'
+publish_to: 'none' 
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.0.0 <4.0.0' 
+  sdk: '>=3.0.0 <4.0.0'
+
 dependencies:
   flutter:
     sdk: flutter
-
-  # Dependências existentes
+  
   cupertino_icons: ^1.0.8
-  http: ^1.1.0
-  shared_preferences: ^2.0.15
+  http: ^1.2.1
+  shared_preferences: ^2.2.3
 
-  # PACOTES DO BANCO DE DADOS (DRIFT)
-  drift: ^2.11.0
-  sqlite3_flutter_libs: ^0.5.0
-  path_provider: ^2.0.0
-  path: ^1.8.0
+  drift: ^2.17.0
+  sqlite3_flutter_libs: ^0.5.21
+  path_provider: ^2.1.3
+  path: ^1.9.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-
-  # PACOTES DE DESENVOLVIMENTO (DRIFT & LINTS)
-  drift_dev: ^2.11.0
-  build_runner: ^2.4.0
+  
+  drift_dev: ^2.17.0 
+  build_runner: ^2.4.9
   flutter_lints: ^3.0.0
 
 flutter:

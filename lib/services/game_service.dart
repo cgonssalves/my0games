@@ -46,10 +46,10 @@ class GameService {
         final data = json.decode(response.body);
         final List results = data['results'];
         
-        // Converte os resultados da API para a nossa classe Game
+        // Converte os resultados da API para a classe Game
         return results.map((e) => Game.fromJson(e)).toList();
       } else {
-        // Se deu erro na busca, mostra no console
+        // Se deu erro na busca mostra no console
         print('Erro na API: ${response.statusCode}');
         return [];
       }
