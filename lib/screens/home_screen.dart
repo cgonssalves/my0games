@@ -29,9 +29,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadUserData() async {
     final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _gamerName = prefs.getString('gamerName') ?? 'Gamer';
-    });
+    if(mounted) {
+      setState(() {
+        _gamerName = prefs.getString('gamerName') ?? 'Gamer';
+      });
+    }
   }
 
   @override
@@ -95,113 +97,133 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+      body: SafeArea( 
+        child: SingleChildScrollView( 
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch, 
               children: [
-                IconButton(
-                  icon: const Icon(Icons.logout),
-                  tooltip: 'Sair',
-                  onPressed: _logout,
+                // --- CABEÇALHO COM BOTÃO DE LOGOUT ---
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.logout),
+                        tooltip: 'Sair',
+                        onPressed: _logout,
+                      ),
+                    ],
+                  ),
                 ),
+                
+                // --- MUDANÇA 1: PERFIL MENOR ---
+                const CircleAvatar(
+                  radius: 40, 
+                  backgroundImage: NetworkImage('https://i.imgur.com/8soQJkH.png'), 
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _gamerName,
+                  textAlign: TextAlign.center, 
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold), 
+                ),
+                const SizedBox(height: 24),
+
+                // --- SELETOR DE PLATAFORMA ---
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: DropdownButtonFormField<String>(
+                    value: _selectedPlatform,
+                    items: _platforms.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() {
+                          _selectedPlatform = value;
+                          _updateGamesStream();
+                        });
+                      }
+                    },
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder()
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                
+                // --- CABEÇALHO DA BIBLIOTECA ---
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text("Biblioteca", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.add, size: 16),
+                        label: const Text("Adicionar"),
+                        onPressed: _navigateToGameSearch,
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+
+                _buildGameLibraryList(),
+
               ],
             ),
-
-            const CircleAvatar(
-              radius: 50,
-              backgroundImage: NetworkImage('https://i.imgur.com/8soQJkH.png'), 
-            ),
-            const SizedBox(height: 12),
-            Text(
-              _gamerName, 
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 20),
-
-
-            // --- SELETOR DE PLATAFORMA ---
-            DropdownButtonFormField<String>(
-              value: _selectedPlatform,
-              items: _platforms.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
-              onChanged: (value) {
-                if (value != null) {
-                  setState(() {
-                    _selectedPlatform = value;
-                    _updateGamesStream();
-                  });
-                }
-              },
-              decoration: const InputDecoration(border: OutlineInputBorder()),
-            ),
-            const SizedBox(height: 24),
-            
-            // --- TÍTULO DA BIBLIOTECA ---
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text("Biblioteca", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.add),
-                  label: const Text("Adicionar"),
-                  onPressed: _navigateToGameSearch,
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-
-            // --- GRADE DE JOGOS ---
-            Expanded(
-              child: _buildGameLibraryGrid(),
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildGameLibraryGrid() {
+  Widget _buildGameLibraryList() {
     return StreamBuilder<List<Game>>(
       stream: _gamesStream,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return const SizedBox(height: 200, child: Center(child: CircularProgressIndicator()));
         }
         final games = snapshot.data ?? [];
         if (games.isEmpty) {
-          return Center(child: Text("Nenhum jogo para '$_selectedPlatform'."));
+          return SizedBox(height: 200, child: Center(child: Text("Nenhum jogo para '$_selectedPlatform'.")));
         }
-        return GridView.builder(
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-            childAspectRatio: 0.75,
-          ),
-          itemCount: games.length,
-          itemBuilder: (context, index) {
-            final game = games[index];
-            return InkWell(
-              onLongPress: () => _showDeleteConfirmationDialog(game),
-              child: Card(
-                clipBehavior: Clip.antiAlias,
-                child: GridTile(
-                  footer: GridTileBar(
-                    backgroundColor: Colors.black54,
-                    title: Text(game.name, textAlign: TextAlign.center),
-                  ),
-                  child: Image.network(
-                    game.coverUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stack) => const Icon(Icons.broken_image),
+
+        return SizedBox(
+          height: 200, // Altura da prateleira.
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal, 
+            itemCount: games.length,
+            padding: const EdgeInsets.symmetric(horizontal: 16.0), 
+            itemBuilder: (context, index) {
+              final game = games[index];
+              return InkWell(
+                onLongPress: () => _showDeleteConfirmationDialog(game),
+                child: Container(
+                  width: 140, // Largura de cada item
+                  margin: const EdgeInsets.only(right: 10), // Espaçamento entre os jogos
+                  child: Card(
+                    clipBehavior: Clip.antiAlias,
+                    child: GridTile(
+                      footer: GridTileBar(
+                        backgroundColor: Colors.black54,
+                        title: Text(game.name, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12)),
+                      ),
+                      child: Image.network(
+                        game.coverUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stack) => const Icon(Icons.broken_image),
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         );
       },
     );
