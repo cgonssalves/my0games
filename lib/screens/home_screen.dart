@@ -16,15 +16,19 @@ class _HomeScreenState extends State<HomeScreen> {
   late Stream<List<Game>> _gamesStream;
   String _gamerName = "Carregando...";
 
-  final List<String> _platforms = ['PC', 'Xbox', 'Playstation', 'Nintendo'];
-  String _selectedPlatform = 'PC';
+  // --- MUDANÇA 1: De String para Lista de Strings ---
+  // Agora guardamos uma lista das plataformas selecionadas pelo usuário
+  List<String> _selectedPlatforms = []; 
+
+  // Lista com todas as plataformas possíveis para seleção
+  final List<String> _allPlatforms = ['Steam', 'Epic', 'Playstation', 'Xbox', 'Nintendo'];
 
   @override
   void initState() {
     super.initState();
     _database = AppDatabase();
     _loadUserData();
-    _updateGamesStream();
+    _updateGamesStream(); // Chama o método para iniciar o stream
   }
 
   Future<void> _loadUserData() async {
@@ -32,6 +36,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if(mounted) {
       setState(() {
         _gamerName = prefs.getString('gamerName') ?? 'Gamer';
+        // TODO: No futuro, você pode salvar e carregar as plataformas do SharedPreferences também
       });
     }
   }
@@ -42,25 +47,24 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
   
+  // Atualiza o stream de jogos com base na LISTA de plataformas
   void _updateGamesStream() {
     setState(() {
-      _gamesStream = _database.gamesDao.watchGamesByPlatform(_selectedPlatform);
+      _gamesStream = _database.gamesDao.watchGamesByPlatforms(_selectedPlatforms);
     });
   }
 
+  // ... (As funções _navigateToGameSearch, _logout e _showDeleteConfirmationDialog continuam as mesmas)
   void _navigateToGameSearch() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => GameSearchScreen(gamesDao: _database.gamesDao),
-      ),
-    );
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (context) => GameSearchScreen(gamesDao: _database.gamesDao),
+    ));
   }
 
   Future<void> _logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
     await _database.gamesDao.clearAllDataForLogout();
-    
     if (mounted) {
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (context) => const LoginScreen()),
@@ -70,25 +74,64 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showDeleteConfirmationDialog(Game game) {
-    showDialog(
+    showDialog(context: context, builder: (BuildContext context) {
+      return AlertDialog(
+        title: const Text("Confirmar Exclusão"),
+        content: Text("Deseja remover '${game.name}'?"),
+        actions: [
+          TextButton(child: const Text("Cancelar"), onPressed: () => Navigator.of(context).pop()),
+          TextButton(
+            child: const Text("Excluir", style: TextStyle(color: Colors.red)),
+            onPressed: () {
+              _database.gamesDao.deleteGame(game);
+              Navigator.of(context).pop();
+            },
+          ),
+        ],
+      );
+    });
+  }
+
+
+  // --- MUDANÇA 2: Janela para Selecionar Plataformas ---
+  void _showPlatformSelectionSheet() {
+    showModalBottomSheet(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text("Confirmar Exclusão"),
-          content: Text("Deseja remover '${game.name}'?"),
-          actions: [
-            TextButton(
-              child: const Text("Cancelar"),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-            TextButton(
-              child: const Text("Excluir", style: TextStyle(color: Colors.red)),
-              onPressed: () {
-                _database.gamesDao.deleteGame(game);
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Em qual plataforma você joga?',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+              const SizedBox(height: 16),
+              // O Wrap organiza os botões e quebra a linha se não couberem
+              Wrap(
+                spacing: 8.0, // Espaço horizontal entre os botões
+                runSpacing: 8.0, // Espaço vertical entre as linhas
+                alignment: WrapAlignment.center,
+                children: _allPlatforms.map((platform) {
+                  // Checa se a plataforma já foi selecionada para desabilitar o botão
+                  final isSelected = _selectedPlatforms.contains(platform);
+                  return ElevatedButton(
+                    onPressed: isSelected ? null : () {
+                      setState(() {
+                        _selectedPlatforms.add(platform);
+                        _updateGamesStream(); // Atualiza a biblioteca com o novo filtro
+                      });
+                      Navigator.pop(context); // Fecha a janela
+                    },
+                    child: Text(platform),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
         );
       },
     );
@@ -97,63 +140,37 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea( 
-        child: SingleChildScrollView( 
+      body: SafeArea(
+        child: SingleChildScrollView(
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 16.0),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch, 
               children: [
-                // --- CABEÇALHO COM BOTÃO DE LOGOUT ---
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.logout),
-                        tooltip: 'Sair',
-                        onPressed: _logout,
-                      ),
-                    ],
+                    children: [ IconButton(icon: const Icon(Icons.logout), onPressed: _logout) ],
                   ),
                 ),
-                
-                // --- MUDANÇA 1: PERFIL MENOR ---
                 const CircleAvatar(
-                  radius: 40, 
+                  radius: 40,
                   backgroundImage: NetworkImage('https://i.imgur.com/8soQJkH.png'), 
                 ),
                 const SizedBox(height: 8),
                 Text(
                   _gamerName,
-                  textAlign: TextAlign.center, 
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold), 
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 24),
 
-                // --- SELETOR DE PLATAFORMA ---
+                // --- MUDANÇA 3: O Novo Seletor de Plataforma Visual ---
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: DropdownButtonFormField<String>(
-                    value: _selectedPlatform,
-                    items: _platforms.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
-                    onChanged: (value) {
-                      if (value != null) {
-                        setState(() {
-                          _selectedPlatform = value;
-                          _updateGamesStream();
-                        });
-                      }
-                    },
-                    decoration: const InputDecoration(
-                      border: OutlineInputBorder()
-                    ),
-                  ),
+                  child: _buildPlatformSelector(),
                 ),
                 const SizedBox(height: 24),
                 
-                // --- CABEÇALHO DA BIBLIOTECA ---
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
                   child: Row(
@@ -170,9 +187,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 const SizedBox(height: 10),
-
                 _buildGameLibraryList(),
-
               ],
             ),
           ),
@@ -181,6 +196,47 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // WIDGET que constrói o novo seletor com os chips e o botão '+'
+  Widget _buildPlatformSelector() {
+    return Container(
+      alignment: Alignment.center,
+      child: Wrap(
+        spacing: 8.0, // Espaço horizontal
+        runSpacing: 8.0, // Espaço vertical (caso quebre a linha)
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          // Mapeia a lista de plataformas selecionadas para criar os 'chips'
+          ..._selectedPlatforms.map((platform) {
+            return Chip(
+              label: Text(platform),
+              onDeleted: () {
+                setState(() {
+                  _selectedPlatforms.remove(platform);
+                  _updateGamesStream(); // Atualiza o filtro da biblioteca
+                });
+              },
+            );
+          }).toList(),
+
+          // O botão de adicionar
+          InkWell(
+            onTap: _showPlatformSelectionSheet,
+            child: Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade800,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.add, size: 18),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ... (O método _buildGameLibraryList continua o mesmo)
   Widget _buildGameLibraryList() {
     return StreamBuilder<List<Game>>(
       stream: _gamesStream,
@@ -189,23 +245,25 @@ class _HomeScreenState extends State<HomeScreen> {
           return const SizedBox(height: 200, child: Center(child: CircularProgressIndicator()));
         }
         final games = snapshot.data ?? [];
-        if (games.isEmpty) {
-          return SizedBox(height: 200, child: Center(child: Text("Nenhum jogo para '$_selectedPlatform'.")));
+        if (games.isEmpty && _selectedPlatforms.isNotEmpty) {
+          return SizedBox(height: 200, child: Center(child: Text("Nenhum jogo encontrado para as plataformas selecionadas.")));
         }
-
+        if(games.isEmpty && _selectedPlatforms.isEmpty) {
+          return SizedBox(height: 200, child: Center(child: Text("Sua biblioteca está vazia.")));
+        }
         return SizedBox(
-          height: 200, // Altura da prateleira.
+          height: 200,
           child: ListView.builder(
-            scrollDirection: Axis.horizontal, 
+            scrollDirection: Axis.horizontal,
             itemCount: games.length,
-            padding: const EdgeInsets.symmetric(horizontal: 16.0), 
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
             itemBuilder: (context, index) {
               final game = games[index];
               return InkWell(
                 onLongPress: () => _showDeleteConfirmationDialog(game),
                 child: Container(
-                  width: 140, // Largura de cada item
-                  margin: const EdgeInsets.only(right: 10), // Espaçamento entre os jogos
+                  width: 140,
+                  margin: const EdgeInsets.only(right: 10),
                   child: Card(
                     clipBehavior: Clip.antiAlias,
                     child: GridTile(
@@ -213,11 +271,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         backgroundColor: Colors.black54,
                         title: Text(game.name, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12)),
                       ),
-                      child: Image.network(
-                        game.coverUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stack) => const Icon(Icons.broken_image),
-                      ),
+                      child: Image.network(game.coverUrl, fit: BoxFit.cover, errorBuilder: (c,e,s) => const Icon(Icons.broken_image)),
                     ),
                   ),
                 ),

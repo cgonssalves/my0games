@@ -12,10 +12,15 @@ part 'database.g.dart';
 class GamesDao extends DatabaseAccessor<AppDatabase> with _$GamesDaoMixin {
   GamesDao(AppDatabase db) : super(db);
 
-  Stream<List<Game>> watchGamesByPlatform(String platform) {
-    return (select(games)..where((tbl) => tbl.platform.equals(platform))).watch();
-  }
+  Stream<List<Game>> watchGamesByPlatforms(List<String> platforms) {
+    if (platforms.isEmpty) {
+      return select(games).watch(); 
+    } else {
+      return (select(games)..where((tbl) => tbl.platform.isIn(platforms))).watch();
+    }
+  } // <-- CORREÇÃO AQUI: A chave agora fecha o método no lugar certo.
 
+  // Agora os métodos abaixo estão no nível correto, dentro da classe GamesDao.
   Future<int> insertGame(GamesCompanion game) => into(games).insert(game);
 
   Future<int> deleteGame(Game game) => delete(games).delete(game);
