@@ -1,3 +1,5 @@
+// NOME DO ARQUIVO: lib/screens/home_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'game_search_screen.dart';
@@ -16,11 +18,7 @@ class _HomeScreenState extends State<HomeScreen> {
   late Stream<List<Game>> _gamesStream;
   String _gamerName = "Carregando...";
 
-  // --- MUDANÇA 1: De String para Lista de Strings ---
-  // Agora guardamos uma lista das plataformas selecionadas pelo usuário
   List<String> _selectedPlatforms = []; 
-
-  // Lista com todas as plataformas possíveis para seleção
   final List<String> _allPlatforms = ['Steam', 'Epic', 'Playstation', 'Xbox', 'Nintendo'];
 
   @override
@@ -28,7 +26,7 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _database = AppDatabase();
     _loadUserData();
-    _updateGamesStream(); // Chama o método para iniciar o stream
+    _updateGamesStream();
   }
 
   Future<void> _loadUserData() async {
@@ -36,7 +34,6 @@ class _HomeScreenState extends State<HomeScreen> {
     if(mounted) {
       setState(() {
         _gamerName = prefs.getString('gamerName') ?? 'Gamer';
-        // TODO: No futuro, você pode salvar e carregar as plataformas do SharedPreferences também
       });
     }
   }
@@ -47,14 +44,12 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
   
-  // Atualiza o stream de jogos com base na LISTA de plataformas
   void _updateGamesStream() {
     setState(() {
       _gamesStream = _database.gamesDao.watchGamesByPlatforms(_selectedPlatforms);
     });
   }
 
-  // ... (As funções _navigateToGameSearch, _logout e _showDeleteConfirmationDialog continuam as mesmas)
   void _navigateToGameSearch() {
     Navigator.of(context).push(MaterialPageRoute(
       builder: (context) => GameSearchScreen(gamesDao: _database.gamesDao),
@@ -92,8 +87,6 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-
-  // --- MUDANÇA 2: Janela para Selecionar Plataformas ---
   void _showPlatformSelectionSheet() {
     showModalBottomSheet(
       context: context,
@@ -104,27 +97,21 @@ class _HomeScreenState extends State<HomeScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                'Em qual plataforma você joga?',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
+              Text('Em qual plataforma você joga?', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineSmall),
               const SizedBox(height: 16),
-              // O Wrap organiza os botões e quebra a linha se não couberem
               Wrap(
-                spacing: 8.0, // Espaço horizontal entre os botões
-                runSpacing: 8.0, // Espaço vertical entre as linhas
+                spacing: 8.0,
+                runSpacing: 8.0,
                 alignment: WrapAlignment.center,
                 children: _allPlatforms.map((platform) {
-                  // Checa se a plataforma já foi selecionada para desabilitar o botão
                   final isSelected = _selectedPlatforms.contains(platform);
                   return ElevatedButton(
                     onPressed: isSelected ? null : () {
                       setState(() {
                         _selectedPlatforms.add(platform);
-                        _updateGamesStream(); // Atualiza a biblioteca com o novo filtro
+                        _updateGamesStream();
                       });
-                      Navigator.pop(context); // Fecha a janela
+                      Navigator.pop(context);
                     },
                     child: Text(platform),
                   );
@@ -145,6 +132,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 16.0),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -153,24 +141,15 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [ IconButton(icon: const Icon(Icons.logout), onPressed: _logout) ],
                   ),
                 ),
-                const CircleAvatar(
-                  radius: 40,
-                  backgroundImage: NetworkImage('https://i.imgur.com/8soQJkH.png'), 
-                ),
+                const CircleAvatar(radius: 40, backgroundImage: NetworkImage('https://i.imgur.com/8soQJkH.png')),
                 const SizedBox(height: 8),
-                Text(
-                  _gamerName,
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
+                Text(_gamerName, textAlign: TextAlign.center, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 24),
-
-                // --- MUDANÇA 3: O Novo Seletor de Plataforma Visual ---
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
                   child: _buildPlatformSelector(),
                 ),
                 const SizedBox(height: 24),
-                
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
                   child: Row(
@@ -196,47 +175,48 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // WIDGET que constrói o novo seletor com os chips e o botão '+'
   Widget _buildPlatformSelector() {
     return Container(
       alignment: Alignment.center,
       child: Wrap(
-        spacing: 8.0, // Espaço horizontal
-        runSpacing: 8.0, // Espaço vertical (caso quebre a linha)
+        spacing: 8.0,
+        runSpacing: 8.0,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          // Mapeia a lista de plataformas selecionadas para criar os 'chips'
           ..._selectedPlatforms.map((platform) {
             return Chip(
               label: Text(platform),
               onDeleted: () {
                 setState(() {
                   _selectedPlatforms.remove(platform);
-                  _updateGamesStream(); // Atualiza o filtro da biblioteca
+                  _updateGamesStream();
                 });
               },
             );
           }).toList(),
-
-          // O botão de adicionar
           InkWell(
             onTap: _showPlatformSelectionSheet,
             child: Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade800,
-                borderRadius: BorderRadius.circular(8),
-              ),
+              width: 32, height: 32,
+              decoration: BoxDecoration(color: Colors.grey.shade800, borderRadius: BorderRadius.circular(8)),
               child: const Icon(Icons.add, size: 18),
             ),
           ),
+          if (_selectedPlatforms.isNotEmpty)
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _selectedPlatforms.clear();
+                  _updateGamesStream();
+                });
+              },
+              child: const Text('Limpar Filtros', style: TextStyle(color: Colors.amber, fontSize: 12)),
+            )
         ],
       ),
     );
   }
 
-  // ... (O método _buildGameLibraryList continua o mesmo)
   Widget _buildGameLibraryList() {
     return StreamBuilder<List<Game>>(
       stream: _gamesStream,
@@ -245,11 +225,14 @@ class _HomeScreenState extends State<HomeScreen> {
           return const SizedBox(height: 200, child: Center(child: CircularProgressIndicator()));
         }
         final games = snapshot.data ?? [];
-        if (games.isEmpty && _selectedPlatforms.isNotEmpty) {
-          return SizedBox(height: 200, child: Center(child: Text("Nenhum jogo encontrado para as plataformas selecionadas.")));
-        }
-        if(games.isEmpty && _selectedPlatforms.isEmpty) {
-          return SizedBox(height: 200, child: Center(child: Text("Sua biblioteca está vazia.")));
+        if (games.isEmpty) {
+          return SizedBox(
+            height: 200,
+            child: Center(child: Text(_selectedPlatforms.isNotEmpty
+                ? "Nenhum jogo encontrado para as plataformas selecionadas."
+                : "Sua biblioteca está vazia. Adicione um jogo!"
+            )),
+          );
         }
         return SizedBox(
           height: 200,
