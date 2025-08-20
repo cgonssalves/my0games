@@ -1,5 +1,3 @@
-// NOME DO ARQUIVO: lib/screens/game_search_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -7,7 +5,6 @@ import '../database/database.dart';
 
 class GameSearchScreen extends StatefulWidget {
   final GamesDao gamesDao;
-
   const GameSearchScreen({Key? key, required this.gamesDao}) : super(key: key);
 
   @override
@@ -19,15 +16,18 @@ class _GameSearchScreenState extends State<GameSearchScreen> {
   List<dynamic> _searchResults = [];
   bool _isLoading = false;
 
-  final List<String> _selectablePlatforms = ['Steam', 'Epic', 'Playstation', 'Xbox', 'Nintendo'];
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   Future<void> _searchGames() async {
     if (_searchController.text.trim().isEmpty) return;
-    FocusScope.of(context).unfocus(); 
+    FocusScope.of(context).unfocus();
 
     setState(() { _isLoading = true; _searchResults = []; });
 
-    // Lembre-se de colocar sua chave da API aqui
     const apiKey = 'ab7212e032af4985883bddabb6d95c72';
     final query = Uri.encodeComponent(_searchController.text.trim());
     final url = Uri.parse('https://api.rawg.io/api/games?key=$apiKey&search=$query');
@@ -52,39 +52,22 @@ class _GameSearchScreenState extends State<GameSearchScreen> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     }
   }
-  
-  Future<void> _showPlatformChoiceAndSave(dynamic gameData) async {
+
+  Future<void> _showPlatformChoice(dynamic gameData) async {
     showModalBottomSheet(
       context: context,
       builder: (context) {
-        return Container(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                "Adicionar '${gameData['name']}' para qual plataforma?",
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 16),
-              ..._selectablePlatforms.map((platform) {
-                return ElevatedButton(
-                  onPressed: () => _saveGame(gameData, platform),
-                  child: Text(platform),
-                );
-              }).toList(),
-            ],
-          ),
+        return _PlatformSelectionContent(
+          gameData: gameData,
+          onPlatformSelected: (platform) {
+            _saveGame(gameData, platform);
+          },
         );
       },
     );
   }
 
   Future<void> _saveGame(dynamic gameData, String platform) async {
-    Navigator.pop(context); // Fecha a janela de seleção
-
     final newGame = GamesCompanion.insert(
       name: gameData['name'] ?? 'Nome desconhecido',
       coverUrl: gameData['background_image'] ?? 'https://via.placeholder.com/300x400.png?text=No+Image',
@@ -97,14 +80,8 @@ class _GameSearchScreenState extends State<GameSearchScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('${newGame.name.value} adicionado para $platform!')),
       );
-      Navigator.pop(context); // Fecha a tela de busca
+      Navigator.of(context).pop();
     }
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
   }
 
   @override
@@ -147,11 +124,68 @@ class _GameSearchScreenState extends State<GameSearchScreen> {
                         : const Icon(Icons.image_not_supported),
                     title: Text(game['name'] ?? 'Sem nome'),
                     subtitle: Text('Lançamento: ${game['released'] ?? 'N/A'}'),
-                    onTap: () => _showPlatformChoiceAndSave(game),
+                    onTap: () => _showPlatformChoice(game),
                   );
                 },
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+// --- WIDGET INTERNO PARA GERENCIAR A SELEÇÃO ---
+class _PlatformSelectionContent extends StatefulWidget {
+  final dynamic gameData;
+  final Function(String) onPlatformSelected;
+
+  const _PlatformSelectionContent({required this.gameData, required this.onPlatformSelected});
+
+  @override
+  State<_PlatformSelectionContent> createState() => _PlatformSelectionContentState();
+}
+
+class _PlatformSelectionContentState extends State<_PlatformSelectionContent> {
+  bool _isChoosingPC = false;
+
+  final List<String> _initialPlatforms = ['PC', 'Playstation', 'Xbox', 'Nintendo'];
+  final List<String> _pcPlatforms = ['Steam', 'Epic'];
+
+  @override
+  Widget build(BuildContext context) {
+    final title = "Adicionar '${widget.gameData['name']}' para qual plataforma?";
+    final platformsToShow = _isChoosingPC ? _pcPlatforms : _initialPlatforms;
+
+    return Container(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(title, textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 24),
+          ...platformsToShow.map((platform) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4.0),
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                onPressed: () {
+                  if (platform == 'PC') {
+                    setState(() {
+                      _isChoosingPC = true;
+                    });
+                  } else {
+                    Navigator.pop(context);
+                    widget.onPlatformSelected(platform);
+                  }
+                },
+                child: Text(platform),
+              ),
+            );
+          }).toList(),
         ],
       ),
     );
