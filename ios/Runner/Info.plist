@@ -45,5 +45,11 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Este app precisa de acesso à galeria para que você possa postar suas mídias de jogos.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Este app precisa de acesso à câmera para que você possa postar suas mídias de jogos.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Este app precisa de acesso ao microfone para que você possa postar suas mídias de jogos.</string>
 </dict>
 </plist>

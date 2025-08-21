@@ -1,6 +1,11 @@
+// NOME DO ARQUIVO: lib/screens/home_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:collection'; 
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
+import 'dart:collection';
+import 'game_search_screen.dart';
 import '../database/database.dart';
 import 'login_screen.dart';
 
@@ -14,6 +19,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   late AppDatabase _database;
   String _gamerName = "Carregando...";
+  File? _selectedMedia;
 
   @override
   void initState() {
@@ -74,6 +80,16 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  Future<void> _pickMedia() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      setState(() {
+        _selectedMedia = File(pickedFile.path);
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -90,7 +106,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
             return SingleChildScrollView(
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16.0),
+                padding: const EdgeInsets.symmetric(vertical: 8.0),
                 child: Column(
                   children: [
                     Padding(
@@ -132,6 +148,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     const SizedBox(height: 10),
                     _buildGameLibraryList(allGames),
+                    const SizedBox(height: 24),
+                    _buildMediaSection(),
                   ],
                 ),
               ),
@@ -144,7 +162,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildPlatformIndicator(List<String> platforms) {
     if (platforms.isEmpty) {
-      return const SizedBox(height: 32); // Retorna um espaço vazio se não houver plataformas
+      return const SizedBox(height: 32);
     }
     return Container(
       alignment: Alignment.center,
@@ -160,13 +178,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildGameLibraryList(List<Game> games) {
     if (games.isEmpty) {
-      return const SizedBox(
-        height: 200,
-        child: Center(child: Text("Sua biblioteca está vazia. Adicione um jogo!"))
-      );
+      return const SizedBox(height: 170, child: Center(child: Text("Sua biblioteca está vazia.")));
     }
     return SizedBox(
-      height: 200,
+      height: 170,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         itemCount: games.length,
@@ -176,7 +191,7 @@ class _HomeScreenState extends State<HomeScreen> {
           return InkWell(
             onLongPress: () => _showDeleteConfirmationDialog(game),
             child: Container(
-              width: 140,
+              width: 120,
               margin: const EdgeInsets.only(right: 10),
               child: Card(
                 clipBehavior: Clip.antiAlias,
@@ -185,12 +200,59 @@ class _HomeScreenState extends State<HomeScreen> {
                     backgroundColor: Colors.black54,
                     title: Text(game.name, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12)),
                   ),
-                  child: Image.network(game.coverUrl, fit: BoxFit.cover, errorBuilder: (c,e,s) => const Icon(Icons.broken_image)),
+                  child: Image.network(
+                    game.coverUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (c,e,s) => const Icon(Icons.broken_image),
+                  ),
                 ),
               ),
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildMediaSection() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text("Mídias", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 10),
+          if (_selectedMedia == null)
+            GestureDetector(
+              onTap: _pickMedia,
+              child: Container(
+                height: 150,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade800,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.add_photo_alternate_outlined, size: 40),
+                    SizedBox(height: 8),
+                    Text("Adicionar mídia"),
+                  ],
+                ),
+              ),
+            )
+          else
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.file(
+                _selectedMedia!,
+                height: 200,
+                width: double.infinity,
+                fit: BoxFit.cover,
+              ),
+            ),
+        ],
       ),
     );
   }
