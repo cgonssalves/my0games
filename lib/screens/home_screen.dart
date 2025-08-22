@@ -1,11 +1,10 @@
-// NOME DO ARQUIVO: lib/screens/home_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'dart:collection';
 import 'game_search_screen.dart';
+import 'library_screen.dart'; 
 import '../database/database.dart';
 import 'login_screen.dart';
 
@@ -28,27 +27,55 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadUserData();
   }
 
-  Future<void> _loadUserData() async {
-    final prefs = await SharedPreferences.getInstance();
-    if(mounted) {
-      setState(() {
-        _gamerName = prefs.getString('gamerName') ?? 'Gamer';
-      });
-    }
-  }
-
   @override
   void dispose() {
     _database.close();
     super.dispose();
   }
+
+  // Carrega os dados do usuário (nome e mídia salva)
+  Future<void> _loadUserData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final mediaPath = prefs.getString('mediaImagePath');
+    if (mounted) {
+      setState(() {
+        _gamerName = prefs.getString('gamerName') ?? 'Gamer';
+        if (mediaPath != null) {
+          _selectedMedia = File(mediaPath);
+        }
+      });
+    }
+  }
+
+  // Permite ao usuário escolher uma imagem e salva o caminho dela
+  Future<void> _pickMedia() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+
+    if (pickedFile != null) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('mediaImagePath', pickedFile.path);
+      setState(() {
+        _selectedMedia = File(pickedFile.path);
+      });
+    }
+  }
   
+  // Navega para a tela de busca de jogos
   void _navigateToGameSearch() {
     Navigator.of(context).push(MaterialPageRoute(
       builder: (context) => GameSearchScreen(gamesDao: _database.gamesDao),
     ));
   }
+  
+  // Navega para a nova tela de biblioteca completa
+  void _navigateToLibraryScreen() {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (context) => LibraryScreen(database: _database),
+    ));
+  }
 
+  // Faz o logout do usuário
   Future<void> _logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
@@ -61,6 +88,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  // Mostra o diálogo para confirmar a exclusão de um jogo
   void _showDeleteConfirmationDialog(Game game) {
     showDialog(context: context, builder: (BuildContext context) {
       return AlertDialog(
@@ -78,16 +106,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       );
     });
-  }
-
-  Future<void> _pickMedia() async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-    if (pickedFile != null) {
-      setState(() {
-        _selectedMedia = File(pickedFile.path);
-      });
-    }
   }
 
   @override
@@ -133,7 +151,16 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text("Biblioteca", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                          InkWell(
+                            onTap: _navigateToLibraryScreen,
+                            child: const Row(
+                              children: [
+                                Text("Biblioteca", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                                SizedBox(width: 8),
+                                Icon(Icons.arrow_forward_ios, size: 18),
+                              ],
+                            ),
+                          ),
                           ElevatedButton(
                             onPressed: _navigateToGameSearch,
                             style: ElevatedButton.styleFrom(
