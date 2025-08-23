@@ -4,7 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'dart:collection';
 import 'game_search_screen.dart';
-import 'library_screen.dart'; 
+import 'library_screen.dart';
 import '../database/database.dart';
 import 'login_screen.dart';
 
@@ -20,6 +20,9 @@ class _HomeScreenState extends State<HomeScreen> {
   String _gamerName = "Carregando...";
   File? _selectedMedia;
 
+  //variável para controlar o ícone selecionado
+  int _selectedIndex = 2; // começa no Perfil (ícone do meio)
+
   @override
   void initState() {
     super.initState();
@@ -33,7 +36,6 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  // Carrega os dados do usuário (nome e mídia salva)
   Future<void> _loadUserData() async {
     final prefs = await SharedPreferences.getInstance();
     final mediaPath = prefs.getString('mediaImagePath');
@@ -47,7 +49,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // Permite ao usuário escolher uma imagem e salva o caminho dela
   Future<void> _pickMedia() async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
@@ -61,21 +62,18 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
   
-  // Navega para a tela de busca de jogos
   void _navigateToGameSearch() {
     Navigator.of(context).push(MaterialPageRoute(
       builder: (context) => GameSearchScreen(gamesDao: _database.gamesDao),
     ));
   }
   
-  // Navega para a nova tela de biblioteca completa
   void _navigateToLibraryScreen() {
     Navigator.of(context).push(MaterialPageRoute(
       builder: (context) => LibraryScreen(database: _database),
     ));
   }
 
-  // Faz o logout do usuário
   Future<void> _logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
@@ -88,7 +86,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // Mostra o diálogo para confirmar a exclusão de um jogo
   void _showDeleteConfirmationDialog(Game game) {
     showDialog(context: context, builder: (BuildContext context) {
       return AlertDialog(
@@ -108,8 +105,23 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  //função para lidar com o clique nos ícones
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+    // por enquanto apenas é mostrado uma mensagem para confirmar o clique
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Ícone $index foi clicado!'),
+        duration: const Duration(seconds: 1),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    // adicionado o Scaffold de volta para ter onde colocar a BottomNavigationBar
     return Scaffold(
       body: SafeArea(
         child: StreamBuilder<List<Game>>(
@@ -183,6 +195,40 @@ class _HomeScreenState extends State<HomeScreen> {
             );
           },
         ),
+      ),
+      //BARRA DE NAVEGAÇÃO INFERIOR 
+      bottomNavigationBar: BottomNavigationBar(
+        items: const <BottomNavigationBarItem>[
+          BottomNavigationBarItem(
+            icon: Icon(Icons.article_outlined),
+            label: 'Feed',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.chat_bubble_outline),
+            label: 'Mensagens',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person_outline),
+            label: 'Perfil',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.group_outlined),
+            label: 'Grupos',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.shopping_bag_outlined),
+            label: 'Loja',
+          ),
+        ],
+        currentIndex: _selectedIndex,
+        // estilo para a barra de navegação
+        type: BottomNavigationBarType.fixed, // garante que todos os ícones apareçam
+        backgroundColor: Colors.black, // fundo preto
+        selectedItemColor: Colors.white, // cor do ícone selecionado
+        unselectedItemColor: Colors.grey, // cor dos ícones não selecionados
+        showUnselectedLabels: false, // esconde o texto dos não selecionados
+        showSelectedLabels: false, //esconde o texto dos selecionados também
+        onTap: _onItemTapped,
       ),
     );
   }
