@@ -13,6 +13,7 @@ class GamesDao extends DatabaseAccessor<AppDatabase> with _$GamesDaoMixin {
   GamesDao(AppDatabase db) : super(db);
 
   Stream<List<Game>> watchAllGames() => select(games).watch();
+
   Stream<List<Game>> watchGamesByPlatforms(List<String> platforms) {
     if (platforms.isEmpty) {
       return select(games).watch(); 
@@ -35,7 +36,21 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2; 
+
+  @override
+  MigrationStrategy get migration {
+    return MigrationStrategy(
+      onCreate: (Migrator m) async {
+        await m.createAll();
+      },
+      onUpgrade: (Migrator m, int from, int to) async {
+        if (from == 1) {
+          await m.addColumn(games, games.status);
+        }
+      },
+    );
+  }
 }
 
 LazyDatabase _openConnection() {

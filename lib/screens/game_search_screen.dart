@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:drift/drift.dart' hide Column;
 import '../database/database.dart';
 
 class GameSearchScreen extends StatefulWidget {
@@ -53,25 +54,26 @@ class _GameSearchScreenState extends State<GameSearchScreen> {
     }
   }
 
-  Future<void> _showPlatformChoice(dynamic gameData) async {
-    showModalBottomSheet(
+  Future<void> _showAddGameDialog(dynamic gameData) async {
+    showDialog(
       context: context,
       builder: (context) {
-        return _PlatformSelectionContent(
+        return _AddGameDialog(
           gameData: gameData,
-          onPlatformSelected: (platform) {
-            _saveGame(gameData, platform);
+          onGameAdded: (platform, status) {
+            _saveGame(gameData, platform, status);
           },
         );
       },
     );
   }
 
-  Future<void> _saveGame(dynamic gameData, String platform) async {
+  Future<void> _saveGame(dynamic gameData, String platform, String status) async {
     final newGame = GamesCompanion.insert(
       name: gameData['name'] ?? 'Nome desconhecido',
       coverUrl: gameData['background_image'] ?? 'https://via.placeholder.com/300x400.png?text=No+Image',
       platform: platform,
+      status: Value(status),
     );
 
     await widget.gamesDao.insertGame(newGame);
@@ -124,7 +126,7 @@ class _GameSearchScreenState extends State<GameSearchScreen> {
                         : const Icon(Icons.image_not_supported),
                     title: Text(game['name'] ?? 'Sem nome'),
                     subtitle: Text('Lançamento: ${game['released'] ?? 'N/A'}'),
-                    onTap: () => _showPlatformChoice(game),
+                    onTap: () => _showAddGameDialog(game),
                   );
                 },
               ),
@@ -135,59 +137,89 @@ class _GameSearchScreenState extends State<GameSearchScreen> {
   }
 }
 
-// --- WIDGET INTERNO PARA GERENCIAR A SELEÇÃO ---
-class _PlatformSelectionContent extends StatefulWidget {
+class _AddGameDialog extends StatefulWidget {
   final dynamic gameData;
-  final Function(String) onPlatformSelected;
+  final Function(String platform, String status) onGameAdded;
 
-  const _PlatformSelectionContent({required this.gameData, required this.onPlatformSelected});
+  const _AddGameDialog({required this.gameData, required this.onGameAdded});
 
   @override
-  State<_PlatformSelectionContent> createState() => _PlatformSelectionContentState();
+  State<_AddGameDialog> createState() => _AddGameDialogState();
 }
 
-class _PlatformSelectionContentState extends State<_PlatformSelectionContent> {
+class _AddGameDialogState extends State<_AddGameDialog> {
+  String _selectedStatus = 'jogando';
+  String? _selectedPlatform;
   bool _isChoosingPC = false;
 
+  final List<String> _statusOptions = ['jogando', 'zerado', 'platinado'];
   final List<String> _initialPlatforms = ['PC', 'Playstation', 'Xbox', 'Nintendo'];
   final List<String> _pcPlatforms = ['Steam', 'Epic'];
 
   @override
   Widget build(BuildContext context) {
-    final title = "Adicionar '${widget.gameData['name']}' para qual plataforma?";
+    final imageUrl = widget.gameData['background_image'];
     final platformsToShow = _isChoosingPC ? _pcPlatforms : _initialPlatforms;
 
-    return Container(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(title, textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 24),
-          ...platformsToShow.map((platform) {
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4.0),
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
+    return AlertDialog(
+      title: Text("Adicionar '${widget.gameData['name']}'"),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (imageUrl != null)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8.0),
+                child: Image.network(imageUrl, height: 150, fit: BoxFit.cover),
+              ),
+            const SizedBox(height: 16),
+            if (_selectedPlatform == null)
+              ...platformsToShow.map((platform) => ElevatedButton(
                 onPressed: () {
                   if (platform == 'PC') {
-                    setState(() {
-                      _isChoosingPC = true;
-                    });
+                    setState(() => _isChoosingPC = true);
                   } else {
-                    Navigator.pop(context);
-                    widget.onPlatformSelected(platform);
+                    setState(() => _selectedPlatform = platform);
                   }
                 },
                 child: Text(platform),
+              )).toList()
+            else ...[
+              DropdownButtonFormField<String>(
+                value: _selectedStatus,
+                items: _statusOptions.map((status) {
+                  return DropdownMenuItem(
+                    value: status,
+                    child: Text(status[0].toUpperCase() + status.substring(1)),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() => _selectedStatus = value);
+                  }
+                },
+                decoration: const InputDecoration(
+                  labelText: 'Status',
+                  border: OutlineInputBorder(),
+                ),
               ),
-            );
-          }).toList(),
-        ],
+            ],
+          ],
+        ),
       ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancelar'),
+        ),
+        ElevatedButton(
+          onPressed: _selectedPlatform == null ? null : () {
+            widget.onGameAdded(_selectedPlatform!, _selectedStatus);
+            Navigator.pop(context);
+          },
+          child: const Text('Adicionar'),
+        ),
+      ],
     );
   }
 }

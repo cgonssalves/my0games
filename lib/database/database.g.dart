@@ -38,8 +38,15 @@ class $GamesTable extends Games with TableInfo<$GamesTable, Game> {
   late final GeneratedColumn<String> platform = GeneratedColumn<String>(
       'platform', aliasedName, false,
       type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
   @override
-  List<GeneratedColumn> get $columns => [id, name, coverUrl, platform];
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+      'status', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('jogando'));
+  @override
+  List<GeneratedColumn> get $columns => [id, name, coverUrl, platform, status];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -71,6 +78,10 @@ class $GamesTable extends Games with TableInfo<$GamesTable, Game> {
     } else if (isInserting) {
       context.missing(_platformMeta);
     }
+    if (data.containsKey('status')) {
+      context.handle(_statusMeta,
+          status.isAcceptableOrUnknown(data['status']!, _statusMeta));
+    }
     return context;
   }
 
@@ -88,6 +99,8 @@ class $GamesTable extends Games with TableInfo<$GamesTable, Game> {
           .read(DriftSqlType.string, data['${effectivePrefix}cover_url'])!,
       platform: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}platform'])!,
+      status: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}status'])!,
     );
   }
 
@@ -102,11 +115,13 @@ class Game extends DataClass implements Insertable<Game> {
   final String name;
   final String coverUrl;
   final String platform;
+  final String status;
   const Game(
       {required this.id,
       required this.name,
       required this.coverUrl,
-      required this.platform});
+      required this.platform,
+      required this.status});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -114,6 +129,7 @@ class Game extends DataClass implements Insertable<Game> {
     map['name'] = Variable<String>(name);
     map['cover_url'] = Variable<String>(coverUrl);
     map['platform'] = Variable<String>(platform);
+    map['status'] = Variable<String>(status);
     return map;
   }
 
@@ -123,6 +139,7 @@ class Game extends DataClass implements Insertable<Game> {
       name: Value(name),
       coverUrl: Value(coverUrl),
       platform: Value(platform),
+      status: Value(status),
     );
   }
 
@@ -134,6 +151,7 @@ class Game extends DataClass implements Insertable<Game> {
       name: serializer.fromJson<String>(json['name']),
       coverUrl: serializer.fromJson<String>(json['coverUrl']),
       platform: serializer.fromJson<String>(json['platform']),
+      status: serializer.fromJson<String>(json['status']),
     );
   }
   @override
@@ -144,15 +162,22 @@ class Game extends DataClass implements Insertable<Game> {
       'name': serializer.toJson<String>(name),
       'coverUrl': serializer.toJson<String>(coverUrl),
       'platform': serializer.toJson<String>(platform),
+      'status': serializer.toJson<String>(status),
     };
   }
 
-  Game copyWith({int? id, String? name, String? coverUrl, String? platform}) =>
+  Game copyWith(
+          {int? id,
+          String? name,
+          String? coverUrl,
+          String? platform,
+          String? status}) =>
       Game(
         id: id ?? this.id,
         name: name ?? this.name,
         coverUrl: coverUrl ?? this.coverUrl,
         platform: platform ?? this.platform,
+        status: status ?? this.status,
       );
   Game copyWithCompanion(GamesCompanion data) {
     return Game(
@@ -160,6 +185,7 @@ class Game extends DataClass implements Insertable<Game> {
       name: data.name.present ? data.name.value : this.name,
       coverUrl: data.coverUrl.present ? data.coverUrl.value : this.coverUrl,
       platform: data.platform.present ? data.platform.value : this.platform,
+      status: data.status.present ? data.status.value : this.status,
     );
   }
 
@@ -169,13 +195,14 @@ class Game extends DataClass implements Insertable<Game> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('coverUrl: $coverUrl, ')
-          ..write('platform: $platform')
+          ..write('platform: $platform, ')
+          ..write('status: $status')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, name, coverUrl, platform);
+  int get hashCode => Object.hash(id, name, coverUrl, platform, status);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -183,7 +210,8 @@ class Game extends DataClass implements Insertable<Game> {
           other.id == this.id &&
           other.name == this.name &&
           other.coverUrl == this.coverUrl &&
-          other.platform == this.platform);
+          other.platform == this.platform &&
+          other.status == this.status);
 }
 
 class GamesCompanion extends UpdateCompanion<Game> {
@@ -191,17 +219,20 @@ class GamesCompanion extends UpdateCompanion<Game> {
   final Value<String> name;
   final Value<String> coverUrl;
   final Value<String> platform;
+  final Value<String> status;
   const GamesCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
     this.coverUrl = const Value.absent(),
     this.platform = const Value.absent(),
+    this.status = const Value.absent(),
   });
   GamesCompanion.insert({
     this.id = const Value.absent(),
     required String name,
     required String coverUrl,
     required String platform,
+    this.status = const Value.absent(),
   })  : name = Value(name),
         coverUrl = Value(coverUrl),
         platform = Value(platform);
@@ -210,12 +241,14 @@ class GamesCompanion extends UpdateCompanion<Game> {
     Expression<String>? name,
     Expression<String>? coverUrl,
     Expression<String>? platform,
+    Expression<String>? status,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (name != null) 'name': name,
       if (coverUrl != null) 'cover_url': coverUrl,
       if (platform != null) 'platform': platform,
+      if (status != null) 'status': status,
     });
   }
 
@@ -223,12 +256,14 @@ class GamesCompanion extends UpdateCompanion<Game> {
       {Value<int>? id,
       Value<String>? name,
       Value<String>? coverUrl,
-      Value<String>? platform}) {
+      Value<String>? platform,
+      Value<String>? status}) {
     return GamesCompanion(
       id: id ?? this.id,
       name: name ?? this.name,
       coverUrl: coverUrl ?? this.coverUrl,
       platform: platform ?? this.platform,
+      status: status ?? this.status,
     );
   }
 
@@ -247,6 +282,9 @@ class GamesCompanion extends UpdateCompanion<Game> {
     if (platform.present) {
       map['platform'] = Variable<String>(platform.value);
     }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
     return map;
   }
 
@@ -256,7 +294,8 @@ class GamesCompanion extends UpdateCompanion<Game> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('coverUrl: $coverUrl, ')
-          ..write('platform: $platform')
+          ..write('platform: $platform, ')
+          ..write('status: $status')
           ..write(')'))
         .toString();
   }
@@ -279,12 +318,14 @@ typedef $$GamesTableCreateCompanionBuilder = GamesCompanion Function({
   required String name,
   required String coverUrl,
   required String platform,
+  Value<String> status,
 });
 typedef $$GamesTableUpdateCompanionBuilder = GamesCompanion Function({
   Value<int> id,
   Value<String> name,
   Value<String> coverUrl,
   Value<String> platform,
+  Value<String> status,
 });
 
 class $$GamesTableFilterComposer extends Composer<_$AppDatabase, $GamesTable> {
@@ -306,6 +347,9 @@ class $$GamesTableFilterComposer extends Composer<_$AppDatabase, $GamesTable> {
 
   ColumnFilters<String> get platform => $composableBuilder(
       column: $table.platform, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get status => $composableBuilder(
+      column: $table.status, builder: (column) => ColumnFilters(column));
 }
 
 class $$GamesTableOrderingComposer
@@ -328,6 +372,9 @@ class $$GamesTableOrderingComposer
 
   ColumnOrderings<String> get platform => $composableBuilder(
       column: $table.platform, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get status => $composableBuilder(
+      column: $table.status, builder: (column) => ColumnOrderings(column));
 }
 
 class $$GamesTableAnnotationComposer
@@ -350,6 +397,9 @@ class $$GamesTableAnnotationComposer
 
   GeneratedColumn<String> get platform =>
       $composableBuilder(column: $table.platform, builder: (column) => column);
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
 }
 
 class $$GamesTableTableManager extends RootTableManager<
@@ -379,24 +429,28 @@ class $$GamesTableTableManager extends RootTableManager<
             Value<String> name = const Value.absent(),
             Value<String> coverUrl = const Value.absent(),
             Value<String> platform = const Value.absent(),
+            Value<String> status = const Value.absent(),
           }) =>
               GamesCompanion(
             id: id,
             name: name,
             coverUrl: coverUrl,
             platform: platform,
+            status: status,
           ),
           createCompanionCallback: ({
             Value<int> id = const Value.absent(),
             required String name,
             required String coverUrl,
             required String platform,
+            Value<String> status = const Value.absent(),
           }) =>
               GamesCompanion.insert(
             id: id,
             name: name,
             coverUrl: coverUrl,
             platform: platform,
+            status: status,
           ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

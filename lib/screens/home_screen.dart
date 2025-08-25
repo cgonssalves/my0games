@@ -20,14 +20,16 @@ class _HomeScreenState extends State<HomeScreen> {
   String _gamerName = "Carregando...";
   File? _selectedMedia;
 
-  //variável para controlar o ícone selecionado
-  int _selectedIndex = 2; // começa no Perfil (ícone do meio)
+  // variável para guardar o stream de dados garante que o StreamBuilder use sempre a mesma conexão.
+  late Stream<List<Game>> _gamesStream;
 
   @override
   void initState() {
     super.initState();
     _database = AppDatabase();
     _loadUserData();
+    // o stream é inicializado aqui
+    _gamesStream = _database.gamesDao.watchAllGames();
   }
 
   @override
@@ -105,30 +107,18 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  //função para lidar com o clique nos ícones
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-    // por enquanto apenas é mostrado uma mensagem para confirmar o clique
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Ícone $index foi clicado!'),
-        duration: const Duration(seconds: 1),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    // adicionado o Scaffold de volta para ter onde colocar a BottomNavigationBar
     return Scaffold(
       body: SafeArea(
         child: StreamBuilder<List<Game>>(
-          stream: _database.gamesDao.watchAllGames(),
+          stream: _gamesStream,
           builder: (context, snapshot) {
-            if (!snapshot.hasData) {
+            if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
               return const Center(child: CircularProgressIndicator());
+            }
+            if (snapshot.hasError) {
+              return Center(child: Text("Erro ao carregar dados: ${snapshot.error}"));
             }
             
             final allGames = snapshot.data ?? [];
@@ -151,10 +141,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       backgroundImage: NetworkImage('https://i.imgur.com/8soQJkH.png'), 
                     ),
                     const SizedBox(height: 8),
-                    Text(
-                      _gamerName,
-                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                    ),
+                    Text(_gamerName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 16),
                     _buildPlatformIndicator(userPlatforms),
                     const SizedBox(height: 24),
@@ -196,54 +183,16 @@ class _HomeScreenState extends State<HomeScreen> {
           },
         ),
       ),
-      //BARRA DE NAVEGAÇÃO INFERIOR 
-      bottomNavigationBar: BottomNavigationBar(
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Icon(Icons.article_outlined),
-            label: 'Feed',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.chat_bubble_outline),
-            label: 'Mensagens',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            label: 'Perfil',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.group_outlined),
-            label: 'Grupos',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.shopping_bag_outlined),
-            label: 'Loja',
-          ),
-        ],
-        currentIndex: _selectedIndex,
-        // estilo para a barra de navegação
-        type: BottomNavigationBarType.fixed, // garante que todos os ícones apareçam
-        backgroundColor: Colors.black, // fundo preto
-        selectedItemColor: Colors.white, // cor do ícone selecionado
-        unselectedItemColor: Colors.grey, // cor dos ícones não selecionados
-        showUnselectedLabels: false, // esconde o texto dos não selecionados
-        showSelectedLabels: false, //esconde o texto dos selecionados também
-        onTap: _onItemTapped,
-      ),
     );
   }
 
   Widget _buildPlatformIndicator(List<String> platforms) {
-    if (platforms.isEmpty) {
-      return const SizedBox(height: 32);
-    }
+    if (platforms.isEmpty) return const SizedBox(height: 32);
     return Container(
       alignment: Alignment.center,
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: Wrap(
-        spacing: 8.0,
-        runSpacing: 8.0,
-        alignment: WrapAlignment.center,
+        spacing: 8.0, runSpacing: 8.0, alignment: WrapAlignment.center,
         children: platforms.map((platform) => Chip(label: Text(platform))).toList(),
       ),
     );
@@ -268,16 +217,26 @@ class _HomeScreenState extends State<HomeScreen> {
               margin: const EdgeInsets.only(right: 10),
               child: Card(
                 clipBehavior: Clip.antiAlias,
-                child: GridTile(
-                  footer: GridTileBar(
-                    backgroundColor: Colors.black54,
-                    title: Text(game.name, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12)),
-                  ),
-                  child: Image.network(
-                    game.coverUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (c,e,s) => const Icon(Icons.broken_image),
-                  ),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.network(
+                      game.coverUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (c,e,s) => const Icon(Icons.broken_image),
+                    ),
+                    Positioned(
+                      bottom: 0, left: 0, right: 0,
+                      child: GridTileBar(
+                        backgroundColor: Colors.black54,
+                        title: Text(game.name, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12)),
+                      ),
+                    ),
+                    Positioned(
+                      top: 4, left: 4,
+                      child: _buildStatusIcon(game.status),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -328,5 +287,22 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildStatusIcon(String status) {
+    String icon;
+    switch (status) {
+      case 'zerado':
+        icon = '✅';
+        break;
+      case 'platinado':
+        icon = '🏆';
+        break;
+      case 'jogando':
+      default:
+        icon = '▶️';
+        break;
+    }
+    return Text(icon, style: const TextStyle(fontSize: 18, shadows: [Shadow(blurRadius: 2.0)]));
   }
 }
