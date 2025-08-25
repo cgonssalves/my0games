@@ -26,13 +26,10 @@ class _GameSearchScreenState extends State<GameSearchScreen> {
   Future<void> _searchGames() async {
     if (_searchController.text.trim().isEmpty) return;
     FocusScope.of(context).unfocus();
-
     setState(() { _isLoading = true; _searchResults = []; });
-
     const apiKey = 'ab7212e032af4985883bddabb6d95c72';
     final query = Uri.encodeComponent(_searchController.text.trim());
     final url = Uri.parse('https://api.rawg.io/api/games?key=$apiKey&search=$query');
-
     try {
       final response = await http.get(url);
       if (response.statusCode == 200) {
@@ -55,17 +52,14 @@ class _GameSearchScreenState extends State<GameSearchScreen> {
   }
 
   Future<void> _showAddGameDialog(dynamic gameData) async {
-    showDialog(
+    final result = await showDialog<Map<String, String>>(
       context: context,
-      builder: (context) {
-        return _AddGameDialog(
-          gameData: gameData,
-          onGameAdded: (platform, status) {
-            _saveGame(gameData, platform, status);
-          },
-        );
-      },
+      builder: (context) => _AddGameDialog(gameData: gameData),
     );
+    if (result != null) {
+      await _saveGame(gameData, result['platform']!, result['status']!);
+      if (mounted) Navigator.of(context).pop();
+    }
   }
 
   Future<void> _saveGame(dynamic gameData, String platform, String status) async {
@@ -75,23 +69,19 @@ class _GameSearchScreenState extends State<GameSearchScreen> {
       platform: platform,
       status: Value(status),
     );
-
     await widget.gamesDao.insertGame(newGame);
-
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('${newGame.name.value} adicionado para $platform!')),
       );
-      Navigator.of(context).pop();
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // ... (O build da tela de busca continua o mesmo)
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Buscar Jogo'),
-      ),
+      appBar: AppBar(title: const Text('Buscar Jogo')),
       body: Column(
         children: [
           Padding(
@@ -100,10 +90,7 @@ class _GameSearchScreenState extends State<GameSearchScreen> {
               controller: _searchController,
               decoration: InputDecoration(
                 labelText: 'Digite o nome do jogo',
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.search),
-                  onPressed: _searchGames,
-                ),
+                suffixIcon: IconButton(icon: const Icon(Icons.search), onPressed: _searchGames),
                 border: const OutlineInputBorder(),
               ),
               onSubmitted: (_) => _searchGames(),
@@ -139,20 +126,19 @@ class _GameSearchScreenState extends State<GameSearchScreen> {
 
 class _AddGameDialog extends StatefulWidget {
   final dynamic gameData;
-  final Function(String platform, String status) onGameAdded;
-
-  const _AddGameDialog({required this.gameData, required this.onGameAdded});
+  const _AddGameDialog({required this.gameData});
 
   @override
   State<_AddGameDialog> createState() => _AddGameDialogState();
 }
 
 class _AddGameDialogState extends State<_AddGameDialog> {
-  String _selectedStatus = 'jogando';
+  // status inicial 'na biblioteca'
+  String _selectedStatus = 'na biblioteca';
   String? _selectedPlatform;
   bool _isChoosingPC = false;
 
-  final List<String> _statusOptions = ['jogando', 'zerado', 'platinado'];
+  final List<String> _statusOptions = ['na biblioteca', 'jogando', 'zerado', 'platinado', 'lista de desejos'];
   final List<String> _initialPlatforms = ['PC', 'Playstation', 'Xbox', 'Nintendo'];
   final List<String> _pcPlatforms = ['Steam', 'Epic'];
 
@@ -168,10 +154,7 @@ class _AddGameDialogState extends State<_AddGameDialog> {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (imageUrl != null)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8.0),
-                child: Image.network(imageUrl, height: 150, fit: BoxFit.cover),
-              ),
+              ClipRRect(borderRadius: BorderRadius.circular(8.0), child: Image.network(imageUrl, height: 150, fit: BoxFit.cover)),
             const SizedBox(height: 16),
             if (_selectedPlatform == null)
               ...platformsToShow.map((platform) => ElevatedButton(
@@ -188,34 +171,25 @@ class _AddGameDialogState extends State<_AddGameDialog> {
               DropdownButtonFormField<String>(
                 value: _selectedStatus,
                 items: _statusOptions.map((status) {
-                  return DropdownMenuItem(
-                    value: status,
-                    child: Text(status[0].toUpperCase() + status.substring(1)),
-                  );
+                  // capitaliza a primeira letra para ficar mais organizado
+                  String displayText = status.replaceAll('_', ' ');
+                  displayText = displayText[0].toUpperCase() + displayText.substring(1);
+                  return DropdownMenuItem(value: status, child: Text(displayText));
                 }).toList(),
                 onChanged: (value) {
-                  if (value != null) {
-                    setState(() => _selectedStatus = value);
-                  }
+                  if (value != null) setState(() => _selectedStatus = value);
                 },
-                decoration: const InputDecoration(
-                  labelText: 'Status',
-                  border: OutlineInputBorder(),
-                ),
+                decoration: const InputDecoration(labelText: 'Status', border: OutlineInputBorder()),
               ),
             ],
           ],
         ),
       ),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancelar'),
-        ),
+        TextButton(onPressed: () => Navigator.pop(context, null), child: const Text('Cancelar')),
         ElevatedButton(
           onPressed: _selectedPlatform == null ? null : () {
-            widget.onGameAdded(_selectedPlatform!, _selectedStatus);
-            Navigator.pop(context);
+            Navigator.pop(context, {'platform': _selectedPlatform!, 'status': _selectedStatus});
           },
           child: const Text('Adicionar'),
         ),

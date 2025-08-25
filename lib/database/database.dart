@@ -8,44 +8,59 @@ import 'tables.dart';
 
 part 'database.g.dart';
 
-// enum para deixar nosso código de ordenação mais limpo e seguro
-enum SortMode { az, lastAdded, firstAdded }
+enum SortMode { az, lastAdded, firstAdded, platinados, wishlist }
 
 @DriftAccessor(tables: [Games])
 class GamesDao extends DatabaseAccessor<AppDatabase> with _$GamesDaoMixin {
   GamesDao(AppDatabase db) : super(db);
 
-  // parâmetro para ordenar os resultados
   Stream<List<Game>> watchAllGamesOrdered(SortMode mode) {
+    if (mode == SortMode.wishlist) {
+      return (select(games)..where((tbl) => tbl.status.equals('lista de desejos'))
+        ..orderBy([(t) => OrderingTerm(expression: t.name, mode: OrderingMode.asc)]))
+        .watch();
+    }
+
+    final query = select(games)..where((tbl) => tbl.status.isNotIn(['lista de desejos']));
+
     switch (mode) {
       case SortMode.az:
-        // ordena pelo nome em ordem crescente (A-Z)
-        return (select(games)..orderBy([(t) => OrderingTerm(expression: t.name, mode: OrderingMode.asc)])).watch();
+        query.orderBy([(t) => OrderingTerm(expression: t.name, mode: OrderingMode.asc)]);
+        break;
       case SortMode.firstAdded:
-        // ordena pelo ID em ordem crescente (os primeiros adicionados têm IDs menores)
-        return (select(games)..orderBy([(t) => OrderingTerm(expression: t.id, mode: OrderingMode.asc)])).watch();
+        query.orderBy([(t) => OrderingTerm(expression: t.id, mode: OrderingMode.asc)]);
+        break;
+      case SortMode.platinados:
+        final statusOrder = const CustomExpression<int>(
+          "CASE status "
+          "WHEN 'platinado' THEN 1 "
+          "WHEN 'zerado' THEN 2 "
+          "WHEN 'jogando' THEN 3 "
+          "WHEN 'na biblioteca' THEN 4 "
+          "ELSE 5 END"
+        );
+        query.orderBy([
+          (t) => OrderingTerm(expression: statusOrder),
+          (t) => OrderingTerm(expression: t.name, mode: OrderingMode.asc)
+        ]);
+        break;
       case SortMode.lastAdded:
       default:
-        // ordena pelo ID em ordem decrescente (os últimos adicionados têm IDs maiores)
-        return (select(games)..orderBy([(t) => OrderingTerm(expression: t.id, mode: OrderingMode.desc)])).watch();
+        query.orderBy([(t) => OrderingTerm(expression: t.id, mode: OrderingMode.desc)]);
+        break;
     }
+    
+    return query.watch();
   }
 
   Stream<List<Game>> watchAllGames() => select(games).watch();
-
   Stream<List<Game>> watchGamesByPlatforms(List<String> platforms) {
-    if (platforms.isEmpty) {
-      return select(games).watch(); 
-    } else {
-      return (select(games)..where((tbl) => tbl.platform.isIn(platforms))).watch();
-    }
+    if (platforms.isEmpty) return select(games).watch(); 
+    return (select(games)..where((tbl) => tbl.platform.isIn(platforms))).watch();
   }
-
   Future<int> insertGame(GamesCompanion game) => into(games).insert(game);
   Future<int> deleteGame(Game game) => delete(games).delete(game);
-  Future<void> clearAllDataForLogout() async {
-    await delete(games).go();
-  }
+  Future<void> clearAllDataForLogout() async => await delete(games).go();
 }
 
 @DriftDatabase(tables: [Games], daos: [GamesDao])
@@ -58,9 +73,7 @@ class AppDatabase extends _$AppDatabase {
   @override
   MigrationStrategy get migration {
     return MigrationStrategy(
-      onCreate: (Migrator m) async {
-        await m.createAll();
-      },
+      onCreate: (Migrator m) async => await m.createAll(),
       onUpgrade: (Migrator m, int from, int to) async {
         if (from == 1) {
           await m.addColumn(games, games.status);

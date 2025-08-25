@@ -44,7 +44,7 @@ class $GamesTable extends Games with TableInfo<$GamesTable, Game> {
       'status', aliasedName, false,
       type: DriftSqlType.string,
       requiredDuringInsert: false,
-      defaultValue: const Constant('jogando'));
+      defaultValue: const Constant('na biblioteca'));
   @override
   List<GeneratedColumn> get $columns => [id, name, coverUrl, platform, status];
   @override

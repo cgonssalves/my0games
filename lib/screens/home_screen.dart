@@ -19,9 +19,9 @@ class _HomeScreenState extends State<HomeScreen> {
   late AppDatabase _database;
   String _gamerName = "Carregando...";
   File? _selectedMedia;
-
-  // variável para controlar a ordenação 
-  SortMode _sortMode = SortMode.lastAdded; // começa com os mais recentes
+  SortMode _sortMode = SortMode.lastAdded;
+  
+  int _selectedIndex = 2;
 
   @override
   void initState() {
@@ -104,13 +104,18 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     });
   }
+  
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
         child: StreamBuilder<List<Game>>(
-          // stream usa o método de ordenação
           stream: _database.gamesDao.watchAllGamesOrdered(_sortMode),
           builder: (context, snapshot) {
             if (!snapshot.hasData) {
@@ -118,7 +123,9 @@ class _HomeScreenState extends State<HomeScreen> {
             }
             
             final allGames = snapshot.data ?? [];
-            final userPlatforms = SplayTreeSet<String>.from(allGames.map((g) => g.platform)).toList();
+            final userPlatforms = SplayTreeSet<String>.from(allGames
+              .where((g) => g.status != 'lista de desejos')
+              .map((g) => g.platform)).toList();
 
             return SingleChildScrollView(
               child: Padding(
@@ -141,7 +148,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 16),
                     _buildPlatformIndicator(userPlatforms),
                     const SizedBox(height: 24),
-
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
                       child: Row(
@@ -158,6 +164,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                           Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
                               _buildSortDropdown(),
                               const SizedBox(width: 8),
@@ -186,42 +193,45 @@ class _HomeScreenState extends State<HomeScreen> {
           },
         ),
       ),
+      bottomNavigationBar: BottomNavigationBar(
+        items: const <BottomNavigationBarItem>[
+          BottomNavigationBarItem(icon: Icon(Icons.article_outlined), label: 'Feed'),
+          BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_outline), label: 'Mensagens'),
+          BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Perfil'),
+          BottomNavigationBarItem(icon: Icon(Icons.group_outlined), label: 'Grupos'),
+          BottomNavigationBarItem(icon: Icon(Icons.shopping_bag_outlined), label: 'Loja'),
+        ],
+        currentIndex: _selectedIndex,
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: Colors.black,
+        selectedItemColor: Colors.white,
+        unselectedItemColor: Colors.grey,
+        showUnselectedLabels: false,
+        showSelectedLabels: false,
+        onTap: _onItemTapped,
+      ),
     );
   }
 
-  // widget para a caixa de seleção ---
   Widget _buildSortDropdown() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8.0),
-      height: 48, // altura para alinhar com o botão
-      decoration: BoxDecoration(
-        color: Colors.grey.shade800,
-        borderRadius: BorderRadius.circular(8.0),
-      ),
+      height: 48,
+      decoration: BoxDecoration(color: Colors.grey.shade800, borderRadius: BorderRadius.circular(8.0)),
       child: DropdownButton<SortMode>(
         value: _sortMode,
         onChanged: (SortMode? newValue) {
-          if (newValue != null) {
-            setState(() {
-              _sortMode = newValue;
-            });
-          }
+          if (newValue != null) setState(() => _sortMode = newValue);
         },
-        underline: Container(), // remove a linha de baixo padrão
+        underline: Container(),
         icon: const Icon(Icons.sort),
         items: const [
-          DropdownMenuItem(
-            value: SortMode.lastAdded,
-            child: Text("Last Add"),
-          ),
-          DropdownMenuItem(
-            value: SortMode.firstAdded,
-            child: Text("First Add"),
-          ),
-          DropdownMenuItem(
-            value: SortMode.az,
-            child: Text("A - Z"),
-          ),
+          DropdownMenuItem(value: SortMode.lastAdded, child: Text("Last Add")),
+          DropdownMenuItem(value: SortMode.firstAdded, child: Text("First Add")),
+          DropdownMenuItem(value: SortMode.az, child: Text("A - Z")),
+          DropdownMenuItem(value: SortMode.platinados, child: Text("Platinados")),
+          // --- A CORREÇÃO ESTÁ AQUI ---
+          DropdownMenuItem(value: SortMode.wishlist, child: Text("Wishlist")),
         ],
       ),
     );
@@ -304,7 +314,10 @@ class _HomeScreenState extends State<HomeScreen> {
     switch (status) {
       case 'zerado': icon = '✅'; break;
       case 'platinado': icon = '🏆'; break;
-      case 'jogando': default: icon = '▶️'; break;
+      case 'jogando': icon = '▶️'; break;
+      case 'na biblioteca': icon = '📘'; break;
+      case 'lista de desejos': icon = '📜'; break;
+      default: icon = ''; break;
     }
     return Text(icon, style: const TextStyle(fontSize: 18, shadows: [Shadow(blurRadius: 2.0)]));
   }

@@ -4,7 +4,6 @@ import 'game_search_screen.dart';
 
 class LibraryScreen extends StatefulWidget {
   final AppDatabase database;
-
   const LibraryScreen({Key? key, required this.database}) : super(key: key);
 
   @override
@@ -12,7 +11,6 @@ class LibraryScreen extends StatefulWidget {
 }
 
 class _LibraryScreenState extends State<LibraryScreen> {
-  // variável para controlar a ordenação
   SortMode _sortMode = SortMode.lastAdded;
 
   void _navigateToGameSearch() {
@@ -45,21 +43,19 @@ class _LibraryScreenState extends State<LibraryScreen> {
     switch (status) {
       case 'zerado': icon = '✅'; break;
       case 'platinado': icon = '🏆'; break;
-      case 'jogando': default: icon = '▶️'; break;
+      case 'jogando': icon = '▶️'; break;
+      case 'na biblioteca': icon = '📘'; break;
+      case 'lista de desejos': icon = '📜'; break;
+      default: icon = ''; break;
     }
     return Text(icon, style: const TextStyle(fontSize: 20, shadows: [Shadow(blurRadius: 2.0)]));
   }
 
-  // widget para a caixa de seleção
   Widget _buildSortDropdown() {
     return DropdownButton<SortMode>(
       value: _sortMode,
       onChanged: (SortMode? newValue) {
-        if (newValue != null) {
-          setState(() {
-            _sortMode = newValue;
-          });
-        }
+        if (newValue != null) setState(() => _sortMode = newValue);
       },
       underline: Container(),
       icon: const Icon(Icons.sort, color: Colors.white),
@@ -68,6 +64,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
         DropdownMenuItem(value: SortMode.lastAdded, child: Text("Last Add")),
         DropdownMenuItem(value: SortMode.firstAdded, child: Text("First Add")),
         DropdownMenuItem(value: SortMode.az, child: Text("A - Z")),
+        DropdownMenuItem(value: SortMode.platinados, child: Text("Platinados")),
+        DropdownMenuItem(value: SortMode.wishlist, child: Text("Wishlist")),
       ],
     );
   }
@@ -78,7 +76,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
       appBar: AppBar(
         title: const Text('Biblioteca'),
         actions: [
-          // adicionado o seletor na AppBar
           _buildSortDropdown(),
           IconButton(
             icon: const Icon(Icons.add_circle, color: Colors.green, size: 30),
@@ -88,7 +85,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
         ],
       ),
       body: StreamBuilder<List<Game>>(
-        // o stream agora usa o método de ordenação
         stream: widget.database.gamesDao.watchAllGamesOrdered(_sortMode),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -96,7 +92,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
           }
           final games = snapshot.data ?? [];
           if (games.isEmpty) {
-            return const Center(child: Text("Sua biblioteca está vazia."));
+            return Center(child: Text(
+              _sortMode == SortMode.wishlist 
+                ? "Sua lista de desejos está vazia."
+                : "Sua biblioteca está vazia."
+            ));
           }
 
           return GridView.builder(

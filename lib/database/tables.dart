@@ -7,6 +7,5 @@ class Games extends Table {
   TextColumn get coverUrl => text()(); 
   TextColumn get platform => text()();
 
-  TextColumn get status => text().withDefault(const Constant('jogando'))();
-
+  TextColumn get status => text().withDefault(const Constant('na biblioteca'))();
 }
