@@ -20,16 +20,14 @@ class _HomeScreenState extends State<HomeScreen> {
   String _gamerName = "Carregando...";
   File? _selectedMedia;
 
-  // variável para guardar o stream de dados garante que o StreamBuilder use sempre a mesma conexão.
-  late Stream<List<Game>> _gamesStream;
+  // variável para controlar a ordenação 
+  SortMode _sortMode = SortMode.lastAdded; // começa com os mais recentes
 
   @override
   void initState() {
     super.initState();
     _database = AppDatabase();
     _loadUserData();
-    // o stream é inicializado aqui
-    _gamesStream = _database.gamesDao.watchAllGames();
   }
 
   @override
@@ -112,13 +110,11 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       body: SafeArea(
         child: StreamBuilder<List<Game>>(
-          stream: _gamesStream,
+          // stream usa o método de ordenação
+          stream: _database.gamesDao.watchAllGamesOrdered(_sortMode),
           builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
+            if (!snapshot.hasData) {
               return const Center(child: CircularProgressIndicator());
-            }
-            if (snapshot.hasError) {
-              return Center(child: Text("Erro ao carregar dados: ${snapshot.error}"));
             }
             
             final allGames = snapshot.data ?? [];
@@ -145,6 +141,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 16),
                     _buildPlatformIndicator(userPlatforms),
                     const SizedBox(height: 24),
+
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
                       child: Row(
@@ -160,14 +157,20 @@ class _HomeScreenState extends State<HomeScreen> {
                               ],
                             ),
                           ),
-                          ElevatedButton(
-                            onPressed: _navigateToGameSearch,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.green,
-                              shape: const CircleBorder(),
-                              padding: const EdgeInsets.all(12),
-                            ),
-                            child: const Icon(Icons.add, size: 24),
+                          Row(
+                            children: [
+                              _buildSortDropdown(),
+                              const SizedBox(width: 8),
+                              ElevatedButton(
+                                onPressed: _navigateToGameSearch,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green,
+                                  shape: const CircleBorder(),
+                                  padding: const EdgeInsets.all(12),
+                                ),
+                                child: const Icon(Icons.add, size: 24),
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -182,6 +185,44 @@ class _HomeScreenState extends State<HomeScreen> {
             );
           },
         ),
+      ),
+    );
+  }
+
+  // widget para a caixa de seleção ---
+  Widget _buildSortDropdown() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+      height: 48, // altura para alinhar com o botão
+      decoration: BoxDecoration(
+        color: Colors.grey.shade800,
+        borderRadius: BorderRadius.circular(8.0),
+      ),
+      child: DropdownButton<SortMode>(
+        value: _sortMode,
+        onChanged: (SortMode? newValue) {
+          if (newValue != null) {
+            setState(() {
+              _sortMode = newValue;
+            });
+          }
+        },
+        underline: Container(), // remove a linha de baixo padrão
+        icon: const Icon(Icons.sort),
+        items: const [
+          DropdownMenuItem(
+            value: SortMode.lastAdded,
+            child: Text("Last Add"),
+          ),
+          DropdownMenuItem(
+            value: SortMode.firstAdded,
+            child: Text("First Add"),
+          ),
+          DropdownMenuItem(
+            value: SortMode.az,
+            child: Text("A - Z"),
+          ),
+        ],
       ),
     );
   }
@@ -220,22 +261,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    Image.network(
-                      game.coverUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (c,e,s) => const Icon(Icons.broken_image),
-                    ),
-                    Positioned(
-                      bottom: 0, left: 0, right: 0,
-                      child: GridTileBar(
-                        backgroundColor: Colors.black54,
-                        title: Text(game.name, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12)),
-                      ),
-                    ),
-                    Positioned(
-                      top: 4, left: 4,
-                      child: _buildStatusIcon(game.status),
-                    ),
+                    Image.network(game.coverUrl, fit: BoxFit.cover, errorBuilder: (c,e,s) => const Icon(Icons.broken_image)),
+                    Positioned(bottom: 0, left: 0, right: 0, child: GridTileBar(backgroundColor: Colors.black54, title: Text(game.name, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12)))),
+                    Positioned(top: 4, left: 4, child: _buildStatusIcon(game.status)),
                   ],
                 ),
               ),
@@ -260,30 +288,12 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Container(
                 height: 150,
                 width: double.infinity,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade800,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.add_photo_alternate_outlined, size: 40),
-                    SizedBox(height: 8),
-                    Text("Adicionar mídia"),
-                  ],
-                ),
+                decoration: BoxDecoration(color: Colors.grey.shade800, borderRadius: BorderRadius.circular(12)),
+                child: const Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.add_photo_alternate_outlined, size: 40), SizedBox(height: 8), Text("Adicionar mídia")]),
               ),
             )
           else
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.file(
-                _selectedMedia!,
-                height: 200,
-                width: double.infinity,
-                fit: BoxFit.cover,
-              ),
-            ),
+            ClipRRect(borderRadius: BorderRadius.circular(12), child: Image.file(_selectedMedia!, height: 200, width: double.infinity, fit: BoxFit.cover)),
         ],
       ),
     );
@@ -292,16 +302,9 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildStatusIcon(String status) {
     String icon;
     switch (status) {
-      case 'zerado':
-        icon = '✅';
-        break;
-      case 'platinado':
-        icon = '🏆';
-        break;
-      case 'jogando':
-      default:
-        icon = '▶️';
-        break;
+      case 'zerado': icon = '✅'; break;
+      case 'platinado': icon = '🏆'; break;
+      case 'jogando': default: icon = '▶️'; break;
     }
     return Text(icon, style: const TextStyle(fontSize: 18, shadows: [Shadow(blurRadius: 2.0)]));
   }

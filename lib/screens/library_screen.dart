@@ -12,6 +12,9 @@ class LibraryScreen extends StatefulWidget {
 }
 
 class _LibraryScreenState extends State<LibraryScreen> {
+  // variável para controlar a ordenação
+  SortMode _sortMode = SortMode.lastAdded;
+
   void _navigateToGameSearch() {
     Navigator.of(context).push(MaterialPageRoute(
       builder: (context) => GameSearchScreen(gamesDao: widget.database.gamesDao),
@@ -37,22 +40,36 @@ class _LibraryScreenState extends State<LibraryScreen> {
     });
   }
 
-  // retorna o ícone correto com base no status do jogo
   Widget _buildStatusIcon(String status) {
     String icon;
     switch (status) {
-      case 'zerado':
-        icon = '✅';
-        break;
-      case 'platinado':
-        icon = '🏆';
-        break;
-      case 'jogando':
-      default:
-        icon = '▶️';
-        break;
+      case 'zerado': icon = '✅'; break;
+      case 'platinado': icon = '🏆'; break;
+      case 'jogando': default: icon = '▶️'; break;
     }
     return Text(icon, style: const TextStyle(fontSize: 20, shadows: [Shadow(blurRadius: 2.0)]));
+  }
+
+  // widget para a caixa de seleção
+  Widget _buildSortDropdown() {
+    return DropdownButton<SortMode>(
+      value: _sortMode,
+      onChanged: (SortMode? newValue) {
+        if (newValue != null) {
+          setState(() {
+            _sortMode = newValue;
+          });
+        }
+      },
+      underline: Container(),
+      icon: const Icon(Icons.sort, color: Colors.white),
+      dropdownColor: Colors.grey[800],
+      items: const [
+        DropdownMenuItem(value: SortMode.lastAdded, child: Text("Last Add")),
+        DropdownMenuItem(value: SortMode.firstAdded, child: Text("First Add")),
+        DropdownMenuItem(value: SortMode.az, child: Text("A - Z")),
+      ],
+    );
   }
 
   @override
@@ -61,6 +78,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
       appBar: AppBar(
         title: const Text('Biblioteca'),
         actions: [
+          // adicionado o seletor na AppBar
+          _buildSortDropdown(),
           IconButton(
             icon: const Icon(Icons.add_circle, color: Colors.green, size: 30),
             tooltip: 'Adicionar Jogo',
@@ -69,7 +88,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
         ],
       ),
       body: StreamBuilder<List<Game>>(
-        stream: widget.database.gamesDao.watchAllGames(),
+        // o stream agora usa o método de ordenação
+        stream: widget.database.gamesDao.watchAllGamesOrdered(_sortMode),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -95,28 +115,16 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 child: Card(
                   clipBehavior: Clip.antiAlias,
                   elevation: 4.0,
-                  child: Stack( 
+                  child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      // A imagem do jogo
                       Image.network(
                         game.coverUrl,
                         fit: BoxFit.cover,
                         errorBuilder: (c,e,s) => const Center(child: Icon(Icons.broken_image, size: 30, color: Colors.grey)),
                       ),
-                      // nome na parte inferior
-                      Positioned(
-                        bottom: 0, left: 0, right: 0,
-                        child: GridTileBar(
-                          backgroundColor: Colors.black54,
-                          title: Text(game.name, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11)),
-                        ),
-                      ),
-                      // ícone de status no canto superior esquerdo
-                      Positioned(
-                        top: 4, left: 4,
-                        child: _buildStatusIcon(game.status),
-                      ),
+                      Positioned(bottom: 0, left: 0, right: 0, child: GridTileBar(backgroundColor: Colors.black54, title: Text(game.name, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11)))),
+                      Positioned(top: 4, left: 4, child: _buildStatusIcon(game.status)),
                     ],
                   ),
                 ),
