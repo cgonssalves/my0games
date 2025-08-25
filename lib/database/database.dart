@@ -20,7 +20,7 @@ class GamesDao extends DatabaseAccessor<AppDatabase> with _$GamesDaoMixin {
         ..orderBy([(t) => OrderingTerm(expression: t.name, mode: OrderingMode.asc)]))
         .watch();
     }
-
+    
     final query = select(games)..where((tbl) => tbl.status.isNotIn(['lista de desejos']));
 
     switch (mode) {
@@ -68,15 +68,19 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 2;
+  // --- MUDANÇA 1: Aumentamos a versão ---
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration {
     return MigrationStrategy(
       onCreate: (Migrator m) async => await m.createAll(),
       onUpgrade: (Migrator m, int from, int to) async {
-        if (from == 1) {
+        if (from < 2) {
           await m.addColumn(games, games.status);
+        }
+        if (from < 3) {
+          await m.addColumn(games, games.hoursPlayed);
         }
       },
     );

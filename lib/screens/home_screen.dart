@@ -20,7 +20,6 @@ class _HomeScreenState extends State<HomeScreen> {
   String _gamerName = "Carregando...";
   File? _selectedMedia;
   SortMode _sortMode = SortMode.lastAdded;
-  
   int _selectedIndex = 2;
 
   @override
@@ -42,9 +41,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (mounted) {
       setState(() {
         _gamerName = prefs.getString('gamerName') ?? 'Gamer';
-        if (mediaPath != null) {
-          _selectedMedia = File(mediaPath);
-        }
+        if (mediaPath != null) _selectedMedia = File(mediaPath);
       });
     }
   }
@@ -52,13 +49,10 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _pickMedia() async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-
     if (pickedFile != null) {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('mediaImagePath', pickedFile.path);
-      setState(() {
-        _selectedMedia = File(pickedFile.path);
-      });
+      setState(() { _selectedMedia = File(pickedFile.path); });
     }
   }
   
@@ -106,9 +100,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
   
   void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
+    setState(() { _selectedIndex = index; });
   }
 
   @override
@@ -139,10 +131,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         children: [ IconButton(icon: const Icon(Icons.logout), onPressed: _logout) ],
                       ),
                     ),
-                    const CircleAvatar(
-                      radius: 40,
-                      backgroundImage: NetworkImage('https://i.imgur.com/8soQJkH.png'), 
-                    ),
+                    const CircleAvatar(radius: 40, backgroundImage: NetworkImage('https://i.imgur.com/8soQJkH.png')),
                     const SizedBox(height: 8),
                     Text(_gamerName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 16),
@@ -230,7 +219,6 @@ class _HomeScreenState extends State<HomeScreen> {
           DropdownMenuItem(value: SortMode.firstAdded, child: Text("First Add")),
           DropdownMenuItem(value: SortMode.az, child: Text("A - Z")),
           DropdownMenuItem(value: SortMode.platinados, child: Text("Platinados")),
-          // --- A CORREÇÃO ESTÁ AQUI ---
           DropdownMenuItem(value: SortMode.wishlist, child: Text("Wishlist")),
         ],
       ),
@@ -274,6 +262,22 @@ class _HomeScreenState extends State<HomeScreen> {
                     Image.network(game.coverUrl, fit: BoxFit.cover, errorBuilder: (c,e,s) => const Icon(Icons.broken_image)),
                     Positioned(bottom: 0, left: 0, right: 0, child: GridTileBar(backgroundColor: Colors.black54, title: Text(game.name, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12)))),
                     Positioned(top: 4, left: 4, child: _buildStatusIcon(game.status)),
+                    // --- WIDGET PARA MOSTRAR AS HORAS ---
+                    if (game.hoursPlayed != null && game.hoursPlayed! > 0)
+                      Positioned(
+                        top: 4, right: 4,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.7),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            '${game.hoursPlayed}H',
+                            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),

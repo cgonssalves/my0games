@@ -45,8 +45,15 @@ class $GamesTable extends Games with TableInfo<$GamesTable, Game> {
       type: DriftSqlType.string,
       requiredDuringInsert: false,
       defaultValue: const Constant('na biblioteca'));
+  static const VerificationMeta _hoursPlayedMeta =
+      const VerificationMeta('hoursPlayed');
   @override
-  List<GeneratedColumn> get $columns => [id, name, coverUrl, platform, status];
+  late final GeneratedColumn<int> hoursPlayed = GeneratedColumn<int>(
+      'hours_played', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
+  @override
+  List<GeneratedColumn> get $columns =>
+      [id, name, coverUrl, platform, status, hoursPlayed];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -82,6 +89,12 @@ class $GamesTable extends Games with TableInfo<$GamesTable, Game> {
       context.handle(_statusMeta,
           status.isAcceptableOrUnknown(data['status']!, _statusMeta));
     }
+    if (data.containsKey('hours_played')) {
+      context.handle(
+          _hoursPlayedMeta,
+          hoursPlayed.isAcceptableOrUnknown(
+              data['hours_played']!, _hoursPlayedMeta));
+    }
     return context;
   }
 
@@ -101,6 +114,8 @@ class $GamesTable extends Games with TableInfo<$GamesTable, Game> {
           .read(DriftSqlType.string, data['${effectivePrefix}platform'])!,
       status: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}status'])!,
+      hoursPlayed: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}hours_played']),
     );
   }
 
@@ -116,12 +131,14 @@ class Game extends DataClass implements Insertable<Game> {
   final String coverUrl;
   final String platform;
   final String status;
+  final int? hoursPlayed;
   const Game(
       {required this.id,
       required this.name,
       required this.coverUrl,
       required this.platform,
-      required this.status});
+      required this.status,
+      this.hoursPlayed});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -130,6 +147,9 @@ class Game extends DataClass implements Insertable<Game> {
     map['cover_url'] = Variable<String>(coverUrl);
     map['platform'] = Variable<String>(platform);
     map['status'] = Variable<String>(status);
+    if (!nullToAbsent || hoursPlayed != null) {
+      map['hours_played'] = Variable<int>(hoursPlayed);
+    }
     return map;
   }
 
@@ -140,6 +160,9 @@ class Game extends DataClass implements Insertable<Game> {
       coverUrl: Value(coverUrl),
       platform: Value(platform),
       status: Value(status),
+      hoursPlayed: hoursPlayed == null && nullToAbsent
+          ? const Value.absent()
+          : Value(hoursPlayed),
     );
   }
 
@@ -152,6 +175,7 @@ class Game extends DataClass implements Insertable<Game> {
       coverUrl: serializer.fromJson<String>(json['coverUrl']),
       platform: serializer.fromJson<String>(json['platform']),
       status: serializer.fromJson<String>(json['status']),
+      hoursPlayed: serializer.fromJson<int?>(json['hoursPlayed']),
     );
   }
   @override
@@ -163,6 +187,7 @@ class Game extends DataClass implements Insertable<Game> {
       'coverUrl': serializer.toJson<String>(coverUrl),
       'platform': serializer.toJson<String>(platform),
       'status': serializer.toJson<String>(status),
+      'hoursPlayed': serializer.toJson<int?>(hoursPlayed),
     };
   }
 
@@ -171,13 +196,15 @@ class Game extends DataClass implements Insertable<Game> {
           String? name,
           String? coverUrl,
           String? platform,
-          String? status}) =>
+          String? status,
+          Value<int?> hoursPlayed = const Value.absent()}) =>
       Game(
         id: id ?? this.id,
         name: name ?? this.name,
         coverUrl: coverUrl ?? this.coverUrl,
         platform: platform ?? this.platform,
         status: status ?? this.status,
+        hoursPlayed: hoursPlayed.present ? hoursPlayed.value : this.hoursPlayed,
       );
   Game copyWithCompanion(GamesCompanion data) {
     return Game(
@@ -186,6 +213,8 @@ class Game extends DataClass implements Insertable<Game> {
       coverUrl: data.coverUrl.present ? data.coverUrl.value : this.coverUrl,
       platform: data.platform.present ? data.platform.value : this.platform,
       status: data.status.present ? data.status.value : this.status,
+      hoursPlayed:
+          data.hoursPlayed.present ? data.hoursPlayed.value : this.hoursPlayed,
     );
   }
 
@@ -196,13 +225,15 @@ class Game extends DataClass implements Insertable<Game> {
           ..write('name: $name, ')
           ..write('coverUrl: $coverUrl, ')
           ..write('platform: $platform, ')
-          ..write('status: $status')
+          ..write('status: $status, ')
+          ..write('hoursPlayed: $hoursPlayed')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, name, coverUrl, platform, status);
+  int get hashCode =>
+      Object.hash(id, name, coverUrl, platform, status, hoursPlayed);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -211,7 +242,8 @@ class Game extends DataClass implements Insertable<Game> {
           other.name == this.name &&
           other.coverUrl == this.coverUrl &&
           other.platform == this.platform &&
-          other.status == this.status);
+          other.status == this.status &&
+          other.hoursPlayed == this.hoursPlayed);
 }
 
 class GamesCompanion extends UpdateCompanion<Game> {
@@ -220,12 +252,14 @@ class GamesCompanion extends UpdateCompanion<Game> {
   final Value<String> coverUrl;
   final Value<String> platform;
   final Value<String> status;
+  final Value<int?> hoursPlayed;
   const GamesCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
     this.coverUrl = const Value.absent(),
     this.platform = const Value.absent(),
     this.status = const Value.absent(),
+    this.hoursPlayed = const Value.absent(),
   });
   GamesCompanion.insert({
     this.id = const Value.absent(),
@@ -233,6 +267,7 @@ class GamesCompanion extends UpdateCompanion<Game> {
     required String coverUrl,
     required String platform,
     this.status = const Value.absent(),
+    this.hoursPlayed = const Value.absent(),
   })  : name = Value(name),
         coverUrl = Value(coverUrl),
         platform = Value(platform);
@@ -242,6 +277,7 @@ class GamesCompanion extends UpdateCompanion<Game> {
     Expression<String>? coverUrl,
     Expression<String>? platform,
     Expression<String>? status,
+    Expression<int>? hoursPlayed,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -249,6 +285,7 @@ class GamesCompanion extends UpdateCompanion<Game> {
       if (coverUrl != null) 'cover_url': coverUrl,
       if (platform != null) 'platform': platform,
       if (status != null) 'status': status,
+      if (hoursPlayed != null) 'hours_played': hoursPlayed,
     });
   }
 
@@ -257,13 +294,15 @@ class GamesCompanion extends UpdateCompanion<Game> {
       Value<String>? name,
       Value<String>? coverUrl,
       Value<String>? platform,
-      Value<String>? status}) {
+      Value<String>? status,
+      Value<int?>? hoursPlayed}) {
     return GamesCompanion(
       id: id ?? this.id,
       name: name ?? this.name,
       coverUrl: coverUrl ?? this.coverUrl,
       platform: platform ?? this.platform,
       status: status ?? this.status,
+      hoursPlayed: hoursPlayed ?? this.hoursPlayed,
     );
   }
 
@@ -285,6 +324,9 @@ class GamesCompanion extends UpdateCompanion<Game> {
     if (status.present) {
       map['status'] = Variable<String>(status.value);
     }
+    if (hoursPlayed.present) {
+      map['hours_played'] = Variable<int>(hoursPlayed.value);
+    }
     return map;
   }
 
@@ -295,7 +337,8 @@ class GamesCompanion extends UpdateCompanion<Game> {
           ..write('name: $name, ')
           ..write('coverUrl: $coverUrl, ')
           ..write('platform: $platform, ')
-          ..write('status: $status')
+          ..write('status: $status, ')
+          ..write('hoursPlayed: $hoursPlayed')
           ..write(')'))
         .toString();
   }
@@ -319,6 +362,7 @@ typedef $$GamesTableCreateCompanionBuilder = GamesCompanion Function({
   required String coverUrl,
   required String platform,
   Value<String> status,
+  Value<int?> hoursPlayed,
 });
 typedef $$GamesTableUpdateCompanionBuilder = GamesCompanion Function({
   Value<int> id,
@@ -326,6 +370,7 @@ typedef $$GamesTableUpdateCompanionBuilder = GamesCompanion Function({
   Value<String> coverUrl,
   Value<String> platform,
   Value<String> status,
+  Value<int?> hoursPlayed,
 });
 
 class $$GamesTableFilterComposer extends Composer<_$AppDatabase, $GamesTable> {
@@ -350,6 +395,9 @@ class $$GamesTableFilterComposer extends Composer<_$AppDatabase, $GamesTable> {
 
   ColumnFilters<String> get status => $composableBuilder(
       column: $table.status, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get hoursPlayed => $composableBuilder(
+      column: $table.hoursPlayed, builder: (column) => ColumnFilters(column));
 }
 
 class $$GamesTableOrderingComposer
@@ -375,6 +423,9 @@ class $$GamesTableOrderingComposer
 
   ColumnOrderings<String> get status => $composableBuilder(
       column: $table.status, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get hoursPlayed => $composableBuilder(
+      column: $table.hoursPlayed, builder: (column) => ColumnOrderings(column));
 }
 
 class $$GamesTableAnnotationComposer
@@ -400,6 +451,9 @@ class $$GamesTableAnnotationComposer
 
   GeneratedColumn<String> get status =>
       $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<int> get hoursPlayed => $composableBuilder(
+      column: $table.hoursPlayed, builder: (column) => column);
 }
 
 class $$GamesTableTableManager extends RootTableManager<
@@ -430,6 +484,7 @@ class $$GamesTableTableManager extends RootTableManager<
             Value<String> coverUrl = const Value.absent(),
             Value<String> platform = const Value.absent(),
             Value<String> status = const Value.absent(),
+            Value<int?> hoursPlayed = const Value.absent(),
           }) =>
               GamesCompanion(
             id: id,
@@ -437,6 +492,7 @@ class $$GamesTableTableManager extends RootTableManager<
             coverUrl: coverUrl,
             platform: platform,
             status: status,
+            hoursPlayed: hoursPlayed,
           ),
           createCompanionCallback: ({
             Value<int> id = const Value.absent(),
@@ -444,6 +500,7 @@ class $$GamesTableTableManager extends RootTableManager<
             required String coverUrl,
             required String platform,
             Value<String> status = const Value.absent(),
+            Value<int?> hoursPlayed = const Value.absent(),
           }) =>
               GamesCompanion.insert(
             id: id,
@@ -451,6 +508,7 @@ class $$GamesTableTableManager extends RootTableManager<
             coverUrl: coverUrl,
             platform: platform,
             status: status,
+            hoursPlayed: hoursPlayed,
           ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

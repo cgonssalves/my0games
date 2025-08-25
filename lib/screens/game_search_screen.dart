@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; 
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:drift/drift.dart' hide Column;
@@ -52,22 +53,23 @@ class _GameSearchScreenState extends State<GameSearchScreen> {
   }
 
   Future<void> _showAddGameDialog(dynamic gameData) async {
-    final result = await showDialog<Map<String, String>>(
+    final result = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (context) => _AddGameDialog(gameData: gameData),
     );
     if (result != null) {
-      await _saveGame(gameData, result['platform']!, result['status']!);
+      await _saveGame(gameData, result['platform'], result['status'], result['hours']);
       if (mounted) Navigator.of(context).pop();
     }
   }
 
-  Future<void> _saveGame(dynamic gameData, String platform, String status) async {
+  Future<void> _saveGame(dynamic gameData, String platform, String status, int? hours) async {
     final newGame = GamesCompanion.insert(
       name: gameData['name'] ?? 'Nome desconhecido',
       coverUrl: gameData['background_image'] ?? 'https://via.placeholder.com/300x400.png?text=No+Image',
       platform: platform,
       status: Value(status),
+      hoursPlayed: Value(hours), // Salva as horas
     );
     await widget.gamesDao.insertGame(newGame);
     if (mounted) {
@@ -79,7 +81,6 @@ class _GameSearchScreenState extends State<GameSearchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // ... (O build da tela de busca continua o mesmo)
     return Scaffold(
       appBar: AppBar(title: const Text('Buscar Jogo')),
       body: Column(
@@ -133,7 +134,7 @@ class _AddGameDialog extends StatefulWidget {
 }
 
 class _AddGameDialogState extends State<_AddGameDialog> {
-  // status inicial 'na biblioteca'
+  final _hoursController = TextEditingController();
   String _selectedStatus = 'na biblioteca';
   String? _selectedPlatform;
   bool _isChoosingPC = false;
@@ -143,9 +144,16 @@ class _AddGameDialogState extends State<_AddGameDialog> {
   final List<String> _pcPlatforms = ['Steam', 'Epic'];
 
   @override
+  void dispose() {
+    _hoursController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final imageUrl = widget.gameData['background_image'];
     final platformsToShow = _isChoosingPC ? _pcPlatforms : _initialPlatforms;
+    final showHoursField = ['jogando', 'zerado', 'platinado'].contains(_selectedStatus);
 
     return AlertDialog(
       title: Text("Adicionar '${widget.gameData['name']}'"),
@@ -157,21 +165,24 @@ class _AddGameDialogState extends State<_AddGameDialog> {
               ClipRRect(borderRadius: BorderRadius.circular(8.0), child: Image.network(imageUrl, height: 150, fit: BoxFit.cover)),
             const SizedBox(height: 16),
             if (_selectedPlatform == null)
-              ...platformsToShow.map((platform) => ElevatedButton(
-                onPressed: () {
-                  if (platform == 'PC') {
-                    setState(() => _isChoosingPC = true);
-                  } else {
-                    setState(() => _selectedPlatform = platform);
-                  }
-                },
-                child: Text(platform),
+              ...platformsToShow.map((platform) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4.0),
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 36)),
+                  onPressed: () {
+                    if (platform == 'PC') {
+                      setState(() => _isChoosingPC = true);
+                    } else {
+                      setState(() => _selectedPlatform = platform);
+                    }
+                  },
+                  child: Text(platform),
+                ),
               )).toList()
             else ...[
               DropdownButtonFormField<String>(
                 value: _selectedStatus,
                 items: _statusOptions.map((status) {
-                  // capitaliza a primeira letra para ficar mais organizado
                   String displayText = status.replaceAll('_', ' ');
                   displayText = displayText[0].toUpperCase() + displayText.substring(1);
                   return DropdownMenuItem(value: status, child: Text(displayText));
@@ -181,6 +192,21 @@ class _AddGameDialogState extends State<_AddGameDialog> {
                 },
                 decoration: const InputDecoration(labelText: 'Status', border: OutlineInputBorder()),
               ),
+              if (showHoursField) ...[
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _hoursController,
+                  decoration: const InputDecoration(
+                    labelText: 'Horas jogadas:',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(6), // Limita a 100.000 (999999)
+                  ],
+                ),
+              ],
             ],
           ],
         ),
@@ -189,7 +215,11 @@ class _AddGameDialogState extends State<_AddGameDialog> {
         TextButton(onPressed: () => Navigator.pop(context, null), child: const Text('Cancelar')),
         ElevatedButton(
           onPressed: _selectedPlatform == null ? null : () {
-            Navigator.pop(context, {'platform': _selectedPlatform!, 'status': _selectedStatus});
+            int? hours;
+            if (showHoursField && _hoursController.text.isNotEmpty) {
+              hours = int.tryParse(_hoursController.text);
+            }
+            Navigator.pop(context, {'platform': _selectedPlatform!, 'status': _selectedStatus, 'hours': hours});
           },
           child: const Text('Adicionar'),
         ),

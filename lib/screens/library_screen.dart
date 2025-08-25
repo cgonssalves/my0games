@@ -125,6 +125,22 @@ class _LibraryScreenState extends State<LibraryScreen> {
                       ),
                       Positioned(bottom: 0, left: 0, right: 0, child: GridTileBar(backgroundColor: Colors.black54, title: Text(game.name, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11)))),
                       Positioned(top: 4, left: 4, child: _buildStatusIcon(game.status)),
+                      // --- WIDGET PARA MOSTRAR AS HORAS ---
+                      if (game.hoursPlayed != null && game.hoursPlayed! > 0)
+                        Positioned(
+                          top: 4, right: 4,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.7),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              '${game.hoursPlayed}H',
+                              style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),
