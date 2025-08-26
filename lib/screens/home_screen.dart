@@ -41,7 +41,9 @@ class _HomeScreenState extends State<HomeScreen> {
     if (mounted) {
       setState(() {
         _gamerName = prefs.getString('gamerName') ?? 'Gamer';
-        if (mediaPath != null) _selectedMedia = File(mediaPath);
+        if (mediaPath != null) {
+          _selectedMedia = File(mediaPath);
+        }
       });
     }
   }
@@ -49,10 +51,13 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _pickMedia() async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+
     if (pickedFile != null) {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('mediaImagePath', pickedFile.path);
-      setState(() { _selectedMedia = File(pickedFile.path); });
+      setState(() {
+        _selectedMedia = File(pickedFile.path);
+      });
     }
   }
   
@@ -100,7 +105,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
   
   void _onItemTapped(int index) {
-    setState(() { _selectedIndex = index; });
+    setState(() {
+      _selectedIndex = index;
+    });
   }
 
   @override
@@ -119,11 +126,15 @@ class _HomeScreenState extends State<HomeScreen> {
               .where((g) => g.status != 'lista de desejos')
               .map((g) => g.platform)).toList();
 
+            final playingGames = allGames.where((game) => game.status == 'jogando').toList();
+            final libraryGames = allGames.where((game) => game.status != 'jogando').toList();
+
             return SingleChildScrollView(
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8.0),
                 child: Column(
                   children: [
+                    // Seção do Perfil
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
                       child: Row(
@@ -137,6 +148,19 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 16),
                     _buildPlatformIndicator(userPlatforms),
                     const SizedBox(height: 24),
+
+                    // Seção 'Jogando'
+                    if (playingGames.isNotEmpty) ...[
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: _buildSectionHeader("Jogando"),
+                      ),
+                      const SizedBox(height: 10),
+                      _buildHorizontalGameList(playingGames),
+                      const SizedBox(height: 24),
+                    ],
+
+                    // Seção Biblioteca
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
                       child: Row(
@@ -172,8 +196,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                     const SizedBox(height: 10),
-                    _buildGameLibraryList(allGames),
+                    _buildHorizontalGameList(libraryGames),
                     const SizedBox(height: 24),
+                    
                     _buildMediaSection(),
                   ],
                 ),
@@ -199,6 +224,57 @@ class _HomeScreenState extends State<HomeScreen> {
         showSelectedLabels: false,
         onTap: _onItemTapped,
       ),
+    );
+  }
+
+  Widget _buildHorizontalGameList(List<Game> games) {
+    if (games.isEmpty) {
+      return const SizedBox(height: 170, child: Center(child: Text("Nenhum jogo para exibir.")));
+    }
+    return SizedBox(
+      height: 170,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: games.length,
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        itemBuilder: (context, index) {
+          final game = games[index];
+          return InkWell(
+            onLongPress: () => _showDeleteConfirmationDialog(game),
+            child: Container(
+              width: 120,
+              margin: const EdgeInsets.only(right: 10),
+              child: Card(
+                clipBehavior: Clip.antiAlias,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.network(game.coverUrl, fit: BoxFit.cover, errorBuilder: (c,e,s) => const Icon(Icons.broken_image)),
+                    Positioned(bottom: 0, left: 0, right: 0, child: GridTileBar(backgroundColor: Colors.black54, title: Text(game.name, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12)))),
+                    Positioned(top: 4, left: 4, child: _buildStatusIcon(game.status)),
+                    if (game.hoursPlayed != null && game.hoursPlayed! > 0)
+                      Positioned(
+                        top: 4, right: 4,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                          decoration: BoxDecoration(color: Colors.black.withOpacity(0.7), borderRadius: BorderRadius.circular(4)),
+                          child: Text('${game.hoursPlayed}H', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Text(title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
     );
   }
 
@@ -237,64 +313,13 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildGameLibraryList(List<Game> games) {
-    if (games.isEmpty) {
-      return const SizedBox(height: 170, child: Center(child: Text("Sua biblioteca está vazia.")));
-    }
-    return SizedBox(
-      height: 170,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: games.length,
-        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-        itemBuilder: (context, index) {
-          final game = games[index];
-          return InkWell(
-            onLongPress: () => _showDeleteConfirmationDialog(game),
-            child: Container(
-              width: 120,
-              margin: const EdgeInsets.only(right: 10),
-              child: Card(
-                clipBehavior: Clip.antiAlias,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Image.network(game.coverUrl, fit: BoxFit.cover, errorBuilder: (c,e,s) => const Icon(Icons.broken_image)),
-                    Positioned(bottom: 0, left: 0, right: 0, child: GridTileBar(backgroundColor: Colors.black54, title: Text(game.name, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12)))),
-                    Positioned(top: 4, left: 4, child: _buildStatusIcon(game.status)),
-                    // --- WIDGET PARA MOSTRAR AS HORAS ---
-                    if (game.hoursPlayed != null && game.hoursPlayed! > 0)
-                      Positioned(
-                        top: 4, right: 4,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.7),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            '${game.hoursPlayed}H',
-                            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
   Widget _buildMediaSection() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text("Mídias", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+          _buildSectionHeader("Mídias"),
           const SizedBox(height: 10),
           if (_selectedMedia == null)
             GestureDetector(
