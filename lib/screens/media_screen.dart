@@ -13,20 +13,17 @@ class MediaScreen extends StatelessWidget {
         title: const Text('Mídias'),
       ),
       body: GridView.builder(
-        padding: const EdgeInsets.all(8.0),
+        padding: const EdgeInsets.all(4.0), 
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3, // 3 fotos por linha
-          crossAxisSpacing: 8.0,
-          mainAxisSpacing: 8.0,
+          crossAxisCount: 3,
+          crossAxisSpacing: 4.0, 
+          mainAxisSpacing: 4.0,
         ),
         itemCount: mediaFiles.length,
         itemBuilder: (context, index) {
-          return ClipRRect(
-            borderRadius: BorderRadius.circular(12.0),
-            child: Image.file(
-              mediaFiles[index],
-              fit: BoxFit.cover,
-            ),
+          return Image.file(
+            mediaFiles[index],
+            fit: BoxFit.cover,
           );
         },
       ),

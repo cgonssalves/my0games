@@ -20,9 +20,10 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   late AppDatabase _database;
   String _gamerName = "Carregando...";
-  SortMode _sortMode = SortMode.lastAdded;
+  SortMode _sortMode = SortMode.platinados; // O padrão agora é 'Platinados'
   int _selectedIndex = 2;
   List<File> _mediaFiles = [];
+  File? _profileImageFile;
 
   @override
   void initState() {
@@ -40,10 +41,14 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadUserData() async {
     final prefs = await SharedPreferences.getInstance();
     final mediaPaths = prefs.getStringList('mediaImagePaths') ?? [];
+    final profileImagePath = prefs.getString('profileImagePath');
     if (mounted) {
       setState(() {
         _gamerName = prefs.getString('gamerName') ?? 'Gamer';
         _mediaFiles = mediaPaths.map((path) => File(path)).toList();
+        if (profileImagePath != null) {
+          _profileImageFile = File(profileImagePath);
+        }
       });
     }
   }
@@ -51,18 +56,49 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _pickMedia() async {
     final picker = ImagePicker();
     final pickedFiles = await picker.pickMultiImage();
-
     if (pickedFiles.isNotEmpty) {
       final prefs = await SharedPreferences.getInstance();
-      
       final newFiles = pickedFiles.map((file) => File(file.path)).toList();
       _mediaFiles.addAll(newFiles);
-
       final updatedPaths = _mediaFiles.map((file) => file.path).toList();
       await prefs.setStringList('mediaImagePaths', updatedPaths);
-      
       setState(() {});
     }
+  }
+
+  Future<void> _pickProfileImage() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('profileImagePath', pickedFile.path);
+      setState(() {
+        _profileImageFile = File(pickedFile.path);
+      });
+    }
+  }
+
+  void _showChangeProfilePicDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Foto de Perfil'),
+        content: const Text('Deseja alterar sua foto de perfil?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _pickProfileImage();
+            },
+            child: const Text('Confirmar'),
+          ),
+        ],
+      ),
+    );
   }
   
   void _navigateToGameSearch() {
@@ -135,6 +171,9 @@ class _HomeScreenState extends State<HomeScreen> {
             final userPlatforms = SplayTreeSet<String>.from(allGames
               .where((g) => g.status != 'lista de desejos')
               .map((g) => g.platform)).toList();
+            
+            final playingGames = allGames.where((game) => game.status == 'jogando').toList();
+            final libraryGames = allGames.where((game) => game.status != 'jogando').toList();
 
             return SingleChildScrollView(
               child: Padding(
@@ -148,12 +187,31 @@ class _HomeScreenState extends State<HomeScreen> {
                         children: [ IconButton(icon: const Icon(Icons.logout), onPressed: _logout) ],
                       ),
                     ),
-                    const CircleAvatar(radius: 40, backgroundImage: NetworkImage('https://i.imgur.com/8soQJkH.png')),
+                    GestureDetector(
+                      onLongPress: _showChangeProfilePicDialog,
+                      child: CircleAvatar(
+                        radius: 40,
+                        backgroundImage: _profileImageFile != null
+                            ? FileImage(_profileImageFile!) as ImageProvider
+                            : const NetworkImage('https://i.imgur.com/8soQJkH.png'), 
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     Text(_gamerName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 16),
                     _buildPlatformIndicator(userPlatforms),
                     const SizedBox(height: 24),
+
+                    if (playingGames.isNotEmpty) ...[
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: _buildSectionHeader("Jogando"),
+                      ),
+                      const SizedBox(height: 10),
+                      _buildHorizontalGameList(playingGames),
+                      const SizedBox(height: 24),
+                    ],
+
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
                       child: Row(
@@ -189,8 +247,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                     const SizedBox(height: 10),
-                    _buildHorizontalGameList(allGames),
+                    _buildHorizontalGameList(libraryGames),
                     const SizedBox(height: 24),
+                    
                     _buildMediaSection(),
                   ],
                 ),
@@ -219,44 +278,9 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildSortDropdown() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8.0),
-      height: 48,
-      decoration: BoxDecoration(color: Colors.grey.shade800, borderRadius: BorderRadius.circular(8.0)),
-      child: DropdownButton<SortMode>(
-        value: _sortMode,
-        onChanged: (SortMode? newValue) {
-          if (newValue != null) setState(() => _sortMode = newValue);
-        },
-        underline: Container(),
-        icon: const Icon(Icons.sort),
-        items: const [
-          DropdownMenuItem(value: SortMode.lastAdded, child: Text("Last Add")),
-          DropdownMenuItem(value: SortMode.firstAdded, child: Text("First Add")),
-          DropdownMenuItem(value: SortMode.az, child: Text("A - Z")),
-          DropdownMenuItem(value: SortMode.platinados, child: Text("Platinados")),
-          DropdownMenuItem(value: SortMode.wishlist, child: Text("Wishlist")),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPlatformIndicator(List<String> platforms) {
-    if (platforms.isEmpty) return const SizedBox(height: 32);
-    return Container(
-      alignment: Alignment.center,
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-      child: Wrap(
-        spacing: 8.0, runSpacing: 8.0, alignment: WrapAlignment.center,
-        children: platforms.map((platform) => Chip(label: Text(platform))).toList(),
-      ),
-    );
-  }
-
   Widget _buildHorizontalGameList(List<Game> games) {
     if (games.isEmpty) {
-      return const SizedBox(height: 170, child: Center(child: Text("Sua biblioteca está vazia.")));
+      return const SizedBox(height: 170, child: Center(child: Text("Nenhum jogo para exibir.")));
     }
     return SizedBox(
       height: 170,
@@ -272,6 +296,7 @@ class _HomeScreenState extends State<HomeScreen> {
               width: 120,
               margin: const EdgeInsets.only(right: 10),
               child: Card(
+                shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                 clipBehavior: Clip.antiAlias,
                 child: Stack(
                   fit: StackFit.expand,
@@ -298,36 +323,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildMediaSection() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text("Mídias", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-              SizedBox(
-                height: 32,
-                width: 32,
-                child: ElevatedButton(
-                  onPressed: _pickMedia,
-                  style: ElevatedButton.styleFrom(
-                    padding: EdgeInsets.zero,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  child: const Icon(Icons.add, size: 20),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          _buildMediaGridPreview(),
-        ],
-      ),
-    );
-  }
-
   Widget _buildMediaGridPreview() {
     if (_mediaFiles.isEmpty) {
       return GestureDetector(
@@ -340,13 +335,11 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       );
     }
-
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
         final smallImageSize = (width - 8) / 3;
         final largeImageHeight = smallImageSize * 2 + 8;
-
         return SizedBox(
           height: largeImageHeight,
           child: Row(
@@ -382,17 +375,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildMediaItem(File imageFile) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12.0),
-      child: Image.file(imageFile, fit: BoxFit.cover, width: double.infinity, height: double.infinity),
-    );
+    return Image.file(imageFile, fit: BoxFit.cover, width: double.infinity, height: double.infinity);
   }
 
   Widget _buildSeeMoreItem(File imageFile) {
     return GestureDetector(
       onTap: _navigateToMediaScreen,
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(12.0),
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -406,6 +395,78 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Text(title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+    );
+  }
+
+  Widget _buildSortDropdown() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+      height: 48,
+      decoration: BoxDecoration(color: Colors.grey.shade800, borderRadius: BorderRadius.circular(8.0)),
+      child: DropdownButton<SortMode>(
+        value: _sortMode,
+        onChanged: (SortMode? newValue) {
+          if (newValue != null) setState(() => _sortMode = newValue);
+        },
+        underline: Container(),
+        icon: const Icon(Icons.sort),
+        items: const [
+          DropdownMenuItem(value: SortMode.platinados, child: Text("Platinados")),
+          DropdownMenuItem(value: SortMode.lastAdded, child: Text("Last Add")),
+          DropdownMenuItem(value: SortMode.firstAdded, child: Text("First Add")),
+          DropdownMenuItem(value: SortMode.az, child: Text("A - Z")),
+          DropdownMenuItem(value: SortMode.wishlist, child: Text("Wishlist")),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlatformIndicator(List<String> platforms) {
+    if (platforms.isEmpty) return const SizedBox(height: 32);
+    return Container(
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Wrap(
+        spacing: 8.0, runSpacing: 8.0, alignment: WrapAlignment.center,
+        children: platforms.map((platform) => Chip(label: Text(platform))).toList(),
+      ),
+    );
+  }
+
+  Widget _buildMediaSection() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text("Mídias", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+              SizedBox(
+                height: 32,
+                width: 32,
+                child: ElevatedButton(
+                  onPressed: _pickMedia,
+                  style: ElevatedButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  child: const Icon(Icons.add, size: 20),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _buildMediaGridPreview(),
+        ],
       ),
     );
   }
