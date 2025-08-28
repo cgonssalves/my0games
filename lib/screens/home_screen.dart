@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
-import 'dart:ui';
+import 'dart:ui'; 
 import 'dart:collection';
 import 'game_search_screen.dart';
 import 'library_screen.dart';
 import 'media_screen.dart';
+import 'confirm_media_screen.dart';
 import '../database/database.dart';
 import 'login_screen.dart';
 
@@ -20,9 +21,8 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   late AppDatabase _database;
   String _gamerName = "Carregando...";
-  SortMode _sortMode = SortMode.platinados; // O padrão agora é 'Platinados'
+  SortMode _sortMode = SortMode.platinados;
   int _selectedIndex = 2;
-  List<File> _mediaFiles = [];
   File? _profileImageFile;
 
   @override
@@ -40,12 +40,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadUserData() async {
     final prefs = await SharedPreferences.getInstance();
-    final mediaPaths = prefs.getStringList('mediaImagePaths') ?? [];
     final profileImagePath = prefs.getString('profileImagePath');
     if (mounted) {
       setState(() {
         _gamerName = prefs.getString('gamerName') ?? 'Gamer';
-        _mediaFiles = mediaPaths.map((path) => File(path)).toList();
         if (profileImagePath != null) {
           _profileImageFile = File(profileImagePath);
         }
@@ -53,19 +51,28 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _pickMedia() async {
+  Future<void> _pickMedia(List<Game> userGames) async {
+    if (userGames.where((g) => g.status != 'lista de desejos').toList().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Adicione um jogo à sua biblioteca primeiro!')),
+      );
+      return;
+    }
+
     final picker = ImagePicker();
     final pickedFiles = await picker.pickMultiImage();
-    if (pickedFiles.isNotEmpty) {
-      final prefs = await SharedPreferences.getInstance();
-      final newFiles = pickedFiles.map((file) => File(file.path)).toList();
-      _mediaFiles.addAll(newFiles);
-      final updatedPaths = _mediaFiles.map((file) => file.path).toList();
-      await prefs.setStringList('mediaImagePaths', updatedPaths);
-      setState(() {});
+
+    if (pickedFiles.isNotEmpty && mounted) {
+      final imageFiles = pickedFiles.map((file) => File(file.path)).toList();
+      Navigator.of(context).push(MaterialPageRoute(
+        builder: (context) => ConfirmMediaScreen(
+          pickedImages: imageFiles,
+          database: _database,
+        ),
+      ));
     }
   }
-
+ 
   Future<void> _pickProfileImage() async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
@@ -85,10 +92,7 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Text('Foto de Perfil'),
         content: const Text('Deseja alterar sua foto de perfil?'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
@@ -100,13 +104,13 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-  
+ 
   void _navigateToGameSearch() {
     Navigator.of(context).push(MaterialPageRoute(
       builder: (context) => GameSearchScreen(gamesDao: _database.gamesDao),
     ));
   }
-  
+ 
   void _navigateToLibraryScreen() {
     Navigator.of(context).push(MaterialPageRoute(
       builder: (context) => LibraryScreen(database: _database),
@@ -115,7 +119,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _navigateToMediaScreen() {
     Navigator.of(context).push(MaterialPageRoute(
-      builder: (context) => MediaScreen(mediaFiles: _mediaFiles),
+      builder: (context) => MediaScreen(database: _database),
     ));
   }
 
@@ -149,7 +153,7 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     });
   }
-  
+ 
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
@@ -201,7 +205,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 16),
                     _buildPlatformIndicator(userPlatforms),
                     const SizedBox(height: 24),
-
                     if (playingGames.isNotEmpty) ...[
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -211,7 +214,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       _buildHorizontalGameList(playingGames),
                       const SizedBox(height: 24),
                     ],
-
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
                       child: Row(
@@ -249,8 +251,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 10),
                     _buildHorizontalGameList(libraryGames),
                     const SizedBox(height: 24),
-                    
-                    _buildMediaSection(),
+                    _buildMediaSection(allGames),
                   ],
                 ),
               ),
@@ -274,6 +275,41 @@ class _HomeScreenState extends State<HomeScreen> {
         showUnselectedLabels: false,
         showSelectedLabels: false,
         onTap: _onItemTapped,
+      ),
+    );
+  }
+
+  Widget _buildSortDropdown() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+      height: 48,
+      decoration: BoxDecoration(color: Colors.grey.shade800, borderRadius: BorderRadius.circular(8.0)),
+      child: DropdownButton<SortMode>(
+        value: _sortMode,
+        onChanged: (SortMode? newValue) {
+          if (newValue != null) setState(() => _sortMode = newValue);
+        },
+        underline: Container(),
+        icon: const Icon(Icons.sort),
+        items: const [
+          DropdownMenuItem(value: SortMode.platinados, child: Text("Platinados")),
+          DropdownMenuItem(value: SortMode.lastAdded, child: Text("Last Add")),
+          DropdownMenuItem(value: SortMode.firstAdded, child: Text("First Add")),
+          DropdownMenuItem(value: SortMode.az, child: Text("A - Z")),
+          DropdownMenuItem(value: SortMode.wishlist, child: Text("Wishlist")),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlatformIndicator(List<String> platforms) {
+    if (platforms.isEmpty) return const SizedBox(height: 32);
+    return Container(
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Wrap(
+        spacing: 8.0, runSpacing: 8.0, alignment: WrapAlignment.center,
+        children: platforms.map((platform) => Chip(label: Text(platform))).toList(),
       ),
     );
   }
@@ -323,18 +359,56 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildMediaGridPreview() {
-    if (_mediaFiles.isEmpty) {
+  Widget _buildMediaSection(List<Game> userGames) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text("Mídias", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+              SizedBox(
+                height: 32,
+                width: 32,
+                child: ElevatedButton(
+                  onPressed: () => _pickMedia(userGames),
+                  style: ElevatedButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  child: const Icon(Icons.add, size: 20),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          StreamBuilder<List<MediaItem>>(
+            stream: _database.mediaDao.watchAllMedia(),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) return const SizedBox(height: 150);
+              final mediaItems = snapshot.data!;
+              return _buildMediaGridPreview(mediaItems);
+            }
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMediaGridPreview(List<MediaItem> mediaItems) {
+    if (mediaItems.isEmpty) {
       return GestureDetector(
-        onTap: _pickMedia,
+        onTap: () => _pickMedia([]),
         child: Container(
           height: 150,
           width: double.infinity,
-          decoration: BoxDecoration(color: Colors.grey.shade800, borderRadius: BorderRadius.circular(12)),
+          decoration: BoxDecoration(color: Colors.grey.shade800),
           child: const Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.add_photo_alternate_outlined, size: 40), SizedBox(height: 8), Text("Adicionar mídia")]),
         ),
       );
     }
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
@@ -348,7 +422,7 @@ class _HomeScreenState extends State<HomeScreen> {
               SizedBox(
                 width: width * 0.65,
                 height: largeImageHeight,
-                child: _buildMediaItem(_mediaFiles[0]),
+                child: _buildMediaItem(File(mediaItems[0].imagePath)),
               ),
               const SizedBox(width: 8),
               SizedBox(
@@ -357,12 +431,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     SizedBox(
                       height: smallImageSize,
-                      child: _mediaFiles.length > 1 ? _buildMediaItem(_mediaFiles[1]) : Container(),
+                      child: mediaItems.length > 1 ? _buildMediaItem(File(mediaItems[1].imagePath)) : Container(),
                     ),
                     const SizedBox(height: 8),
                     SizedBox(
                       height: smallImageSize,
-                      child: _mediaFiles.length > 2 ? _buildSeeMoreItem(_mediaFiles[2]) : Container(),
+                      child: mediaItems.length > 2 ? _buildSeeMoreItem(File(mediaItems[2].imagePath)) : Container(),
                     ),
                   ],
                 ),
@@ -374,100 +448,27 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildMediaItem(File imageFile) {
-    return Image.file(imageFile, fit: BoxFit.cover, width: double.infinity, height: double.infinity);
-  }
-
   Widget _buildSeeMoreItem(File imageFile) {
     return GestureDetector(
       onTap: _navigateToMediaScreen,
-      child: ClipRRect(
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            Image.file(imageFile, fit: BoxFit.cover),
-            BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 4.0, sigmaY: 4.0),
-              child: Container(color: Colors.black.withOpacity(0.2)),
-            ),
-            const Center(
-              child: Icon(Icons.arrow_forward_ios, color: Colors.white, size: 30),
-            ),
-          ],
-        ),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.file(imageFile, fit: BoxFit.cover),
+          const Center(child: Icon(Icons.arrow_forward_ios, color: Colors.white, size: 30)),
+        ],
       ),
     );
+  }
+
+  Widget _buildMediaItem(File imageFile) {
+    return Image.file(imageFile, fit: BoxFit.cover, width: double.infinity, height: double.infinity);
   }
 
   Widget _buildSectionHeader(String title) {
     return Align(
       alignment: Alignment.centerLeft,
       child: Text(title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-    );
-  }
-
-  Widget _buildSortDropdown() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8.0),
-      height: 48,
-      decoration: BoxDecoration(color: Colors.grey.shade800, borderRadius: BorderRadius.circular(8.0)),
-      child: DropdownButton<SortMode>(
-        value: _sortMode,
-        onChanged: (SortMode? newValue) {
-          if (newValue != null) setState(() => _sortMode = newValue);
-        },
-        underline: Container(),
-        icon: const Icon(Icons.sort),
-        items: const [
-          DropdownMenuItem(value: SortMode.platinados, child: Text("Platinados")),
-          DropdownMenuItem(value: SortMode.lastAdded, child: Text("Last Add")),
-          DropdownMenuItem(value: SortMode.firstAdded, child: Text("First Add")),
-          DropdownMenuItem(value: SortMode.az, child: Text("A - Z")),
-          DropdownMenuItem(value: SortMode.wishlist, child: Text("Wishlist")),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPlatformIndicator(List<String> platforms) {
-    if (platforms.isEmpty) return const SizedBox(height: 32);
-    return Container(
-      alignment: Alignment.center,
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-      child: Wrap(
-        spacing: 8.0, runSpacing: 8.0, alignment: WrapAlignment.center,
-        children: platforms.map((platform) => Chip(label: Text(platform))).toList(),
-      ),
-    );
-  }
-
-  Widget _buildMediaSection() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text("Mídias", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-              SizedBox(
-                height: 32,
-                width: 32,
-                child: ElevatedButton(
-                  onPressed: _pickMedia,
-                  style: ElevatedButton.styleFrom(
-                    padding: EdgeInsets.zero,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  child: const Icon(Icons.add, size: 20),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          _buildMediaGridPreview(),
-        ],
-      ),
     );
   }
 

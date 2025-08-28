@@ -11,7 +11,7 @@ class LibraryScreen extends StatefulWidget {
 }
 
 class _LibraryScreenState extends State<LibraryScreen> {
-  SortMode _sortMode = SortMode.lastAdded;
+  SortMode _sortMode = SortMode.platinados;
 
   void _navigateToGameSearch() {
     Navigator.of(context).push(MaterialPageRoute(
@@ -61,10 +61,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
       icon: const Icon(Icons.sort, color: Colors.white),
       dropdownColor: Colors.grey[800],
       items: const [
+        DropdownMenuItem(value: SortMode.platinados, child: Text("Platinados")),
         DropdownMenuItem(value: SortMode.lastAdded, child: Text("Last Add")),
         DropdownMenuItem(value: SortMode.firstAdded, child: Text("First Add")),
         DropdownMenuItem(value: SortMode.az, child: Text("A - Z")),
-        DropdownMenuItem(value: SortMode.platinados, child: Text("Platinados")),
         DropdownMenuItem(value: SortMode.wishlist, child: Text("Wishlist")),
       ],
     );

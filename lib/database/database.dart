@@ -54,34 +54,35 @@ class GamesDao extends DatabaseAccessor<AppDatabase> with _$GamesDaoMixin {
   }
 
   Stream<List<Game>> watchAllGames() => select(games).watch();
-  Stream<List<Game>> watchGamesByPlatforms(List<String> platforms) {
-    if (platforms.isEmpty) return select(games).watch(); 
-    return (select(games)..where((tbl) => tbl.platform.isIn(platforms))).watch();
-  }
   Future<int> insertGame(GamesCompanion game) => into(games).insert(game);
   Future<int> deleteGame(Game game) => delete(games).delete(game);
   Future<void> clearAllDataForLogout() async => await delete(games).go();
 }
 
-@DriftDatabase(tables: [Games], daos: [GamesDao])
+@DriftAccessor(tables: [MediaItems])
+class MediaDao extends DatabaseAccessor<AppDatabase> with _$MediaDaoMixin {
+  MediaDao(AppDatabase db) : super(db);
+
+  Stream<List<MediaItem>> watchAllMedia() => select(mediaItems).watch();
+  Future<int> insertMedia(MediaItemsCompanion media) => into(mediaItems).insert(media);
+  Future<int> deleteMedia(MediaItem media) => delete(mediaItems).delete(media);
+}
+
+@DriftDatabase(tables: [Games, MediaItems], daos: [GamesDao, MediaDao])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  // --- MUDANÇA 1: Aumentamos a versão ---
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration {
     return MigrationStrategy(
       onCreate: (Migrator m) async => await m.createAll(),
       onUpgrade: (Migrator m, int from, int to) async {
-        if (from < 2) {
-          await m.addColumn(games, games.status);
-        }
-        if (from < 3) {
-          await m.addColumn(games, games.hoursPlayed);
-        }
+        if (from < 2) await m.addColumn(games, games.status);
+        if (from < 3) await m.addColumn(games, games.hoursPlayed);
+        if (from < 4) await m.createTable(mediaItems);
       },
     );
   }
