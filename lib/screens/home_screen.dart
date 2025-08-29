@@ -2,14 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
-import 'dart:ui'; 
+import 'dart:ui';
 import 'dart:collection';
 import 'game_search_screen.dart';
 import 'library_screen.dart';
 import 'media_screen.dart';
 import 'confirm_media_screen.dart';
-import '../database/database.dart';
 import 'login_screen.dart';
+import 'store_screen.dart';
+import '../database/database.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -162,103 +163,16 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: StreamBuilder<List<Game>>(
-          stream: _database.gamesDao.watchAllGamesOrdered(_sortMode),
-          builder: (context, snapshot) {
-            if (!snapshot.hasData) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            
-            final allGames = snapshot.data ?? [];
-            final userPlatforms = SplayTreeSet<String>.from(allGames
-              .where((g) => g.status != 'lista de desejos')
-              .map((g) => g.platform)).toList();
-            
-            final playingGames = allGames.where((game) => game.status == 'jogando').toList();
-            final libraryGames = allGames.where((game) => game.status != 'jogando').toList();
+    final List<Widget> pages = <Widget>[
+      const Center(child: Text('Feed (Em desenvolvimento)', style: TextStyle(fontSize: 20))),
+      const Center(child: Text('Mensagens (Em desenvolvimento)', style: TextStyle(fontSize: 20))),
+      _buildProfilePage(),
+      const Center(child: Text('Grupos (Em desenvolvimento)', style: TextStyle(fontSize: 20))),
+      const StoreScreen(),
+    ];
 
-            return SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8.0),
-                child: Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [ IconButton(icon: const Icon(Icons.logout), onPressed: _logout) ],
-                      ),
-                    ),
-                    GestureDetector(
-                      onLongPress: _showChangeProfilePicDialog,
-                      child: CircleAvatar(
-                        radius: 40,
-                        backgroundImage: _profileImageFile != null
-                            ? FileImage(_profileImageFile!) as ImageProvider
-                            : const NetworkImage('https://i.imgur.com/8soQJkH.png'), 
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(_gamerName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 16),
-                    _buildPlatformIndicator(userPlatforms),
-                    const SizedBox(height: 24),
-                    if (playingGames.isNotEmpty) ...[
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                        child: _buildSectionHeader("Jogando"),
-                      ),
-                      const SizedBox(height: 10),
-                      _buildHorizontalGameList(playingGames),
-                      const SizedBox(height: 24),
-                    ],
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          InkWell(
-                            onTap: _navigateToLibraryScreen,
-                            child: const Row(
-                              children: [
-                                Text("Biblioteca", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-                                SizedBox(width: 8),
-                                Icon(Icons.arrow_forward_ios, size: 18),
-                              ],
-                            ),
-                          ),
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              _buildSortDropdown(),
-                              const SizedBox(width: 8),
-                              ElevatedButton(
-                                onPressed: _navigateToGameSearch,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.green,
-                                  shape: const CircleBorder(),
-                                  padding: const EdgeInsets.all(12),
-                                ),
-                                child: const Icon(Icons.add, size: 24),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    _buildHorizontalGameList(libraryGames),
-                    const SizedBox(height: 24),
-                    _buildMediaSection(allGames),
-                  ],
-                ),
-              ),
-            );
-          },
-        ),
-      ),
+    return Scaffold(
+      body: pages.elementAt(_selectedIndex),
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(icon: Icon(Icons.article_outlined), label: 'Feed'),
@@ -275,6 +189,105 @@ class _HomeScreenState extends State<HomeScreen> {
         showUnselectedLabels: false,
         showSelectedLabels: false,
         onTap: _onItemTapped,
+      ),
+    );
+  }
+
+  Widget _buildProfilePage() {
+    return SafeArea(
+      child: StreamBuilder<List<Game>>(
+        stream: _database.gamesDao.watchAllGamesOrdered(_sortMode),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          
+          final allGames = snapshot.data ?? [];
+          final userPlatforms = SplayTreeSet<String>.from(allGames
+            .where((g) => g.status != 'lista de desejos')
+            .map((g) => g.platform)).toList();
+          
+          final playingGames = allGames.where((game) => game.status == 'jogando').toList();
+          final libraryGames = allGames.where((game) => game.status != 'jogando').toList();
+
+          return SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8.0),
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [ IconButton(icon: const Icon(Icons.logout), onPressed: _logout) ],
+                    ),
+                  ),
+                  GestureDetector(
+                    onLongPress: _showChangeProfilePicDialog,
+                    child: CircleAvatar(
+                      radius: 40,
+                      backgroundImage: _profileImageFile != null
+                          ? FileImage(_profileImageFile!) as ImageProvider
+                          : const NetworkImage('https://i.imgur.com/8soQJkH.png'), 
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(_gamerName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 16),
+                  _buildPlatformIndicator(userPlatforms),
+                  const SizedBox(height: 24),
+                  if (playingGames.isNotEmpty) ...[
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: _buildSectionHeader("Jogando"),
+                    ),
+                    const SizedBox(height: 10),
+                    _buildHorizontalGameList(playingGames),
+                    const SizedBox(height: 24),
+                  ],
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        InkWell(
+                          onTap: _navigateToLibraryScreen,
+                          child: const Row(
+                            children: [
+                              Text("Biblioteca", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                              SizedBox(width: 8),
+                              Icon(Icons.arrow_forward_ios, size: 18),
+                            ],
+                          ),
+                        ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _buildSortDropdown(),
+                            const SizedBox(width: 8),
+                            ElevatedButton(
+                              onPressed: _navigateToGameSearch,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green,
+                                shape: const CircleBorder(),
+                                padding: const EdgeInsets.all(12),
+                              ),
+                              child: const Icon(Icons.add, size: 24),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _buildHorizontalGameList(libraryGames),
+                  const SizedBox(height: 24),
+                  _buildMediaSection(allGames),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -448,6 +461,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // AQUI ESTÁ A CORREÇÃO FINAL
   Widget _buildSeeMoreItem(File imageFile) {
     return GestureDetector(
       onTap: _navigateToMediaScreen,
@@ -455,6 +469,9 @@ class _HomeScreenState extends State<HomeScreen> {
         fit: StackFit.expand,
         children: [
           Image.file(imageFile, fit: BoxFit.cover),
+          Container(
+            color: Colors.black.withOpacity(0.4),
+          ),
           const Center(child: Icon(Icons.arrow_forward_ios, color: Colors.white, size: 30)),
         ],
       ),
